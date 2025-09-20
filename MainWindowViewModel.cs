@@ -34,7 +34,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private ClipViewModel? _selectedClip;
 
     // --- イベント ---
-    // ★★★ 変更点2：Viewに再生するクリップも渡せるようにイベントの型を変更 ★★★
     public event Action<PlaybackAction, ClipViewModel?>? PlaybackActionRequested;
 
     // --- メンバ変数 ---
@@ -166,6 +165,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (_selectedClip == null) return;
 
       double deltaX = currentMousePosition.X - _startMousePosition.X;
+      var model = SelectedClip.Model;
 
       if (_isDragging)
       {
@@ -175,23 +175,45 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       }
       else if (_trimMode == TrimMode.Right)
       {
-        // 右トリミング中の処理
-        double newWidth = _dragStartWidth + deltaX;
-        if (newWidth < Config.MinClipWidth) newWidth = Config.MinClipWidth;
-        _selectedClip.Width = newWidth;
+        // --- 右トリミング ---
+
+        // [制限1] 元動画の長さを超えないようにする
+        var timeRemaining = model.OriginalDuration - _dragStartTrimStart - _dragStartDuration;
+        double maxRightwardMove = timeRemaining.TotalSeconds * Config.PixelsPerSecond;
+        if (deltaX > maxRightwardMove)
+        {
+          deltaX = maxRightwardMove;
+        }
+
+        // [制限2] 最小幅を下回らないようにする
+        if (_dragStartWidth + deltaX < Config.MinClipWidth)
+        {
+          deltaX = Config.MinClipWidth - _dragStartWidth;
+        }
+
+        // 補正済みのdeltaXを適用
+        SelectedClip.Width = _dragStartWidth + deltaX;
       }
       else if (_trimMode == TrimMode.Left)
       {
-        // 左トリミング中の処理
-        double newWidth = _dragStartWidth - deltaX;
-        double newLeft = _dragStartLeft + deltaX;
-        if (newWidth < Config.MinClipWidth)
+        // --- 左トリミング ---
+
+        // [制限1] 動画の開始位置(0秒)を下回らないようにする
+        double maxLeftwardMove = -_dragStartTrimStart.TotalSeconds * Config.PixelsPerSecond;
+        if (deltaX < maxLeftwardMove)
         {
-          newWidth = _dragStartWidth; // 幅は変えずに位置だけ変える
-          newLeft = _dragStartLeft;
+          deltaX = maxLeftwardMove;
         }
-        _selectedClip.Width = newWidth;
-        _selectedClip.TimelinePosition = newLeft;
+
+        // [制限2] 最小幅を下回らないようにする
+        if (_dragStartWidth - deltaX < Config.MinClipWidth)
+        {
+          deltaX = _dragStartWidth - Config.MinClipWidth;
+        }
+
+        // 補正済みのdeltaXを適用
+        SelectedClip.Width = _dragStartWidth - deltaX;
+        SelectedClip.TimelinePosition = _dragStartLeft + deltaX;
       }
     }
 

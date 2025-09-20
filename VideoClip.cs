@@ -5,7 +5,7 @@ namespace A23_MVVM
 {
   public class VideoClip
   {
-    public string FilePath { get; set; }
+    public required  string FilePath { get; set; }
     public TimeSpan Duration { get; set; }
     public TimeSpan OriginalDuration { get; set; }
     public TimeSpan TrimStart { get; set; }
