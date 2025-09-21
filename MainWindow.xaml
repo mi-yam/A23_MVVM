@@ -54,7 +54,7 @@
             <DataTemplate>
               <Border Width="{Binding Width}" Height="60"
                                     Background="CornflowerBlue"
-                                    ToolTip="{Binding FilePath}">
+                                    ToolTip="{Binding TimelinePosition, StringFormat='Position: {0:F2}'}">
                 <Border.Style>
                   <Style TargetType="Border">
                     <Setter Property="BorderBrush" Value="Black"/>

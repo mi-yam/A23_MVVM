@@ -7,9 +7,6 @@ namespace A23_MVVM
   {
     public required  string FilePath { get; set; }
     public TimeSpan Duration { get; set; }
-    public TimeSpan OriginalDuration { get; set; }
-    public TimeSpan TrimStart { get; set; }
-    public Border ClipUI { get; set; } // ★これは後で削除します
     public double TimelinePosition { get; set; }
   }
 }

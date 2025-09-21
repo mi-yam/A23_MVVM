@@ -20,6 +20,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
   {
     // --- プロパティ ---
     public ObservableCollection<ClipViewModel> Clips { get; } = new ObservableCollection<ClipViewModel>();
+    private List<ClipViewModel> _swappedClips = new List<ClipViewModel>(); 
 
     [ObservableProperty]
     private string _playPauseButtonContent = "再生";
@@ -40,12 +41,9 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private List<ClipViewModel> _sortedClips = new List<ClipViewModel>();
     private int _currentClipIndex = 0;
     private bool _isDragging = false;
-    private TrimMode _trimMode = TrimMode.None;
     private Point _startMousePosition;
     private double _dragStartLeft;
-    private double _dragStartWidth;
-    private TimeSpan _dragStartDuration;
-    private TimeSpan _dragStartTrimStart;
+    private bool _isInteracting = false;
 
     // --- コンストラクタ ---
     public MainWindowViewModel()
@@ -84,9 +82,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
           var newClipModel = new A23_MVVM.VideoClip
           {
             FilePath = openFileDialog.FileName,
-            OriginalDuration = originalDuration,
-            Duration = originalDuration, // 初期値は同じ
-            TrimStart = TimeSpan.Zero
+            Duration = originalDuration // 初期値は同じ
           };
 
           // 3. Modelを元に、UI表示用のViewModelを作成
@@ -113,10 +109,10 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     [RelayCommand]
     private void DeselectAll()
     {
-      if (_selectedClip != null)
+      if (SelectedClip != null)
       {
-        _selectedClip.IsSelected = false;
-        _selectedClip = null;
+        SelectedClip.IsSelected = false;
+        SelectedClip = null;
       }
     }
 
@@ -124,125 +120,65 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     public void StartInteraction(ClipViewModel? clickedClip, Point mousePositionOnTimeline)
     {
       // 1. まずは全ての選択を解除する
+      _isInteracting = true;
       DeselectAll();
+      _swappedClips.Clear(); // これを追加
 
       // 2. 何もない場所がクリックされた場合は、ここで終了
       if (clickedClip == null) return;
 
       // 3. クリックされたクリップを選択状態にする
       clickedClip.IsSelected = true;
-      _selectedClip = clickedClip;
+      SelectedClip = clickedClip;
 
       // 4. マウスの位置を元に、ドラッグかトリミングかを判断し、準備する
       Point mousePositionOnClip = new Point(
           mousePositionOnTimeline.X - clickedClip.TimelinePosition,
           0 // Y座標は今回は無関係
       );
-
-      if (mousePositionOnClip.X <= Config.TrimHandleWidth)
-      {
-        _trimMode = TrimMode.Left;
-      }
-      else if (mousePositionOnClip.X >= clickedClip.Width - Config.TrimHandleWidth)
-      {
-        _trimMode = TrimMode.Right;
-      }
-      else
-      {
-        _isDragging = true;
-      }
+       _isDragging = true;
 
       // 5. 操作前の状態をスナップショットとして保存
       _startMousePosition = mousePositionOnTimeline;
       _dragStartLeft = clickedClip.TimelinePosition;
-      _dragStartWidth = clickedClip.Width;
-      _dragStartTrimStart = clickedClip.TrimStart;
-      _dragStartDuration = clickedClip.Duration;
     }
 
+    // UpdateInteractionメソッドを以下のように書き換える
     public void UpdateInteraction(Point currentMousePosition)
     {
-      if (_selectedClip == null) return;
+      if (!_isInteracting || SelectedClip == null) return;
 
       double deltaX = currentMousePosition.X - _startMousePosition.X;
-      var model = SelectedClip.Model;
 
-      if (_isDragging)
+      double newLeft = _dragStartLeft + deltaX;
+      if (newLeft < 0)
       {
-        // ドラッグ中の処理
-        _selectedClip.TimelinePosition = _dragStartLeft + deltaX;
-        // TODO: スナッピングロジックもここに追加できる
+        newLeft = 0;
       }
-      else if (_trimMode == TrimMode.Right)
-      {
-        // --- 右トリミング ---
-
-        // [制限1] 元動画の長さを超えないようにする
-        var timeRemaining = model.OriginalDuration - _dragStartTrimStart - _dragStartDuration;
-        double maxRightwardMove = timeRemaining.TotalSeconds * Config.PixelsPerSecond;
-        if (deltaX > maxRightwardMove)
-        {
-          deltaX = maxRightwardMove;
-        }
-
-        // [制限2] 最小幅を下回らないようにする
-        if (_dragStartWidth + deltaX < Config.MinClipWidth)
-        {
-          deltaX = Config.MinClipWidth - _dragStartWidth;
-        }
-
-        // 補正済みのdeltaXを適用
-        SelectedClip.Width = _dragStartWidth + deltaX;
-      }
-      else if (_trimMode == TrimMode.Left)
-      {
-        // --- 左トリミング ---
-
-        // [制限1] 動画の開始位置(0秒)を下回らないようにする
-        double maxLeftwardMove = -_dragStartTrimStart.TotalSeconds * Config.PixelsPerSecond;
-        if (deltaX < maxLeftwardMove)
-        {
-          deltaX = maxLeftwardMove;
-        }
-
-        // [制限2] 最小幅を下回らないようにする
-        if (_dragStartWidth - deltaX < Config.MinClipWidth)
-        {
-          deltaX = _dragStartWidth - Config.MinClipWidth;
-        }
-
-        // 補正済みのdeltaXを適用
-        SelectedClip.Width = _dragStartWidth - deltaX;
-        SelectedClip.TimelinePosition = _dragStartLeft + deltaX;
-      }
+      SelectedClip.TimelinePosition = newLeft;
     }
 
+    // EndInteractionメソッドを以下のように書き換える
     public void EndInteraction()
     {
-      if (_selectedClip != null)
+      if (!_isInteracting || SelectedClip == null) return;
+
+      // Canva方式の再整列ロジック（これはそのまま残す）
+      var sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
+      double currentPosition = 0;
+      foreach (var clip in sortedClips)
       {
-        // データを更新
-        if (_isDragging || _trimMode != TrimMode.None)
-        {
-          // UIの値を元に、データモデルの値を最終確定させる
-          var model = _selectedClip.Model;
-          model.TimelinePosition = _selectedClip.TimelinePosition;
-
-          var newDuration = TimeSpan.FromSeconds(_selectedClip.Width / Config.PixelsPerSecond);
-          model.Duration = newDuration;
-
-          if (_trimMode == TrimMode.Left)
-          {
-            double deltaX = _selectedClip.TimelinePosition - _dragStartLeft;
-            var deltaTime = TimeSpan.FromSeconds(deltaX / Config.PixelsPerSecond);
-            model.TrimStart = _dragStartTrimStart + deltaTime;
-          }
-        }
+        clip.TimelinePosition = currentPosition;
+        currentPosition += clip.Width;
       }
 
-      // 全てのモードをリセット
-      _isDragging = false;
-      _trimMode = TrimMode.None;
+      // ModelのTimelinePositionだけ更新すればOK
+      foreach (var clip in Clips)
+      {
+        clip.Model.TimelinePosition = clip.TimelinePosition;
+      }
+
+      _isInteracting = false;
     }
 
     // --- コマンドとメソッドの更新 ---

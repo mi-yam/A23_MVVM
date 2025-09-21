@@ -21,8 +21,6 @@ namespace A23_MVVM
 
     //マウス関係の処理
     private bool isDragging = false;
-    public enum TrimMode { None, Left, Right }
-    private TrimMode _trimMode = TrimMode.None;
     // マウス操作の開始時の状態を記憶しておくための変数
     private Point _dragStartMousePosition;
     private double _dragStartLeft;
