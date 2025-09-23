@@ -45,7 +45,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private Point _startMousePosition;
     private double _dragStartLeft;
     private bool _isInteracting = false;
-    private bool _isTransitioning = false; 
 
     // --- コンストラクタ ---
     public MainWindowViewModel()
@@ -184,51 +183,38 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     }
 
 
-    // OnTimerTickメソッドを以下のように書き換える
     public void OnTimerTick(TimeSpan currentVideoPosition)
     {
-      // 再生中でなければ何もしない
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
 
       var currentClip = _sortedClips[_currentClipIndex];
 
-      // 再生ヘッドの位置を更新する処理だけを行う
-      // TrimStartは削除したので、currentVideoPositionを直接使う
+      // 再生ヘッドの位置を更新する処理「だけ」を行う
+      // TrimStartは削除済みなので、currentVideoPositionを直接使う
       double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
       PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
     }
 
 
-    // GoToNextClipメソッドを以下のように書き換える
     public void GoToNextClip()
     {
-      // もし既にクリップの切り替え処理中なら、何もしない（ロック）
-      if (_isTransitioning) return;
-
-      // 切り替え処理を開始する
-      _isTransitioning = true;
-
       _currentClipIndex++;
       if (_currentClipIndex < _sortedClips.Count)
       {
         var nextClip = _sortedClips[_currentClipIndex];
-        // 次のクリップの再生をViewに要求する
         PlaybackActionRequested?.Invoke(PlaybackAction.Play, nextClip);
       }
       else
       {
-        // 全ての再生が終了
         IsPlaying = false;
         PlaybackActionRequested?.Invoke(PlaybackAction.Stop, null);
         PlayheadPosition = 0;
         PlayPauseButtonContent = "再生";
         _sortedClips.Clear();
         _currentClipIndex = 0;
-        _isTransitioning = false; // 最後にロックを解除
       }
     }
 
-    // PlayPauseメソッドを以下のように書き換える
     [RelayCommand]
     private void PlayPause()
     {
@@ -236,9 +222,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
       if (IsPlaying)
       {
-        // 再生を開始する時は、常にロックを解除する
-        _isTransitioning = false;
-
         if (_currentClipIndex == 0 && !_sortedClips.Any())
         {
           PreparePlayback();
@@ -257,9 +240,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     // SeekToTimeメソッドを以下のように書き換える
     public void SeekToTime(TimeSpan clickedTime)
     {
-      // シークする時は、常にロックを解除する
-      _isTransitioning = false;
-
       PlayheadPosition = clickedTime.TotalSeconds * Config.PixelsPerSecond;
       PreparePlayback();
       var sortedClips = _sortedClips;
@@ -287,9 +267,5 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     }
 
 
-    internal void ResetTransitionFlag()
-    {
-      _isTransitioning = false;
-    }
   }
 }

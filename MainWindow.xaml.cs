@@ -71,9 +71,8 @@ namespace A23_MVVM
       switch (action)
       {
         case PlaybackAction.Play:
-          // ViewModelから clipToPlay がnullで渡された場合は、
-          // 現在の位置から再生を続けるという意味なので、Positionは変更しない
-          if (clipToPlay != null)
+          // ViewModel.ResetTransitionFlag(); // ★この行を削除
+          if (clipToPlay != null) // clipToPlayがnullの場合の考慮を追加
           {
             if (PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
             {
