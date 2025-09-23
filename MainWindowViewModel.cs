@@ -45,6 +45,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private Point _startMousePosition;
     private double _dragStartLeft;
     private bool _isInteracting = false;
+    private bool _isTransitioning = false; 
 
     // --- コンストラクタ ---
     public MainWindowViewModel()
@@ -184,6 +185,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
     public void SeekToTime(TimeSpan clickedTime) 
     {
+      _isTransitioning = false;
       PreparePlayback();
       var sortedClips = _sortedClips;//Clips.OrderBy(c => c.TimelinePosition).ToList();
       TimeSpan cumulativeTime = TimeSpan.Zero;
@@ -213,6 +215,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
       if (IsPlaying)
       {
+        _isTransitioning = false; // ★ロックを解除
         if (_currentClipIndex == 0 && !_sortedClips.Any())
         {
           PreparePlayback();
@@ -237,19 +240,35 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     }
 
     // TimerのTickイベントから呼び出されるメソッド
+    // TimerのTickイベントから呼び出されるメソッド
     public void OnTimerTick(TimeSpan currentVideoPosition)
     {
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
       var currentClip = _sortedClips[_currentClipIndex];
 
-      // 再生ヘッドの位置を更新する処理だけを行う
-      double currentClipProgress = (currentVideoPosition - currentClip.TrimStart).TotalSeconds * Config.PixelsPerSecond;
-      PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
+      if (currentVideoPosition >= currentClip.Duration)
+      {
+        // 時間が来たら、次のクリップへ移動する
+        GoToNextClip();
+      }
+      else
+      {
+        // 再生ヘッドの位置を更新する
+        // TrimStartは0なので、currentVideoPositionを直接使う
+        double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
+        PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
+      }
     }
 
     // 次のクリップへ移動するロジック
     public void GoToNextClip()
     {
+      // もし既にクリップの切り替え処理中なら、何もしない（ロック）
+      if (_isTransitioning) return;
+
+      // 切り替え処理を開始する
+      _isTransitioning = true;
+
       _currentClipIndex++;
       if (_currentClipIndex < _sortedClips.Count)
       {
@@ -258,6 +277,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       }
       else
       {
+        // 全ての再生が終了
         IsPlaying = false;
         PlaybackActionRequested?.Invoke(PlaybackAction.Stop, null);
         PlayheadPosition = 0;
@@ -266,11 +286,9 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         _currentClipIndex = 0;
       }
     }
-
-    // （PlayClipAtIndexメソッドはViewModel内に移動 or 新設）
-    public void PlayClipAtIndex(int index)
+    internal void ResetTransitionFlag()
     {
-      
+      _isTransitioning = false;
     }
   }
 }

@@ -71,7 +71,7 @@ namespace A23_MVVM
       switch (action)
       {
         case PlaybackAction.Play:
-          // ViewModelから再生すべきクリップが指示される
+          ViewModel.ResetTransitionFlag();
           if (clipToPlay != null && PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
           {
             PreviewPlayer.Source = new Uri(clipToPlay.FilePath);
