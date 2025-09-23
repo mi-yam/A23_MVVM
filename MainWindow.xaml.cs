@@ -34,7 +34,7 @@ namespace A23_MVVM
 
     //プレビュー関係
     private DispatcherTimer _playbackTimer;
-
+    private TimeSpan? _pendingSeekPosition = null;
     private List<VideoClip> _timelineClips = [];
     private List<VideoClip> _sortedClips = []; // 再生順に並べたクリップのリスト
     private int _currentClipIndex = 0;      // 現在再生中のクリップのインデックス
@@ -50,10 +50,13 @@ namespace A23_MVVM
 
       // イベントの購読
       viewModel.PlaybackActionRequested += HandlePlaybackAction;
+      viewModel.SeekRequested += HandleSeekRequst;
 
       // タイマーのセットアップ
       _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
       _playbackTimer.Tick += PlaybackTimer_Tick;
+      PreviewPlayer.MediaOpened += PreviewPlayer_MediaOpened;
+
     }
 
     // タイマーは、ViewModelに現在の再生時間を通知するだけ
@@ -124,6 +127,36 @@ namespace A23_MVVM
         _selectedClipUI.BorderBrush = Brushes.Black;
         _selectedClipUI.BorderThickness = new Thickness(1);
         _selectedClipUI = null;
+      }
+    }
+
+    private void TimelineBackground_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+      double clickedX = e.GetPosition(sender as IInputElement).X;
+      TimeSpan clickedTime = TimeSpan.FromSeconds(clickedX / Config.PixelsPerSecond);
+      ViewModel.SeekToTime(clickedTime);
+      //TODO: 再生位置を更新する
+    }
+
+    private void HandleSeekRequst(ClipViewModel clip,TimeSpan positionInClip)
+    {
+      if (PreviewPlayer.Source?.OriginalString != clip.FilePath)
+      {
+        _pendingSeekPosition = positionInClip;
+        PreviewPlayer.Source = new Uri(clip.FilePath);
+      }
+      else
+      {
+        PreviewPlayer.Position = positionInClip;
+      }
+    }
+
+    private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e) 
+    {
+      if(_pendingSeekPosition.HasValue)
+      {
+        PreviewPlayer.Position = _pendingSeekPosition.Value;
+        _pendingSeekPosition = null;
       }
     }
 

@@ -36,6 +36,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
     // --- イベント ---
     public event Action<PlaybackAction, ClipViewModel?>? PlaybackActionRequested;
+    public event Action<ClipViewModel, TimeSpan>? SeekRequested;
 
     // --- メンバ変数 ---
     private List<ClipViewModel> _sortedClips = new List<ClipViewModel>();
@@ -181,6 +182,28 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       _isInteracting = false;
     }
 
+    public void SeekToTime(TimeSpan clickedTime) 
+    {
+      PreparePlayback();
+      var sortedClips = _sortedClips;//Clips.OrderBy(c => c.TimelinePosition).ToList();
+      TimeSpan cumulativeTime = TimeSpan.Zero;
+
+      foreach(var clip in sortedClips)
+      {
+        if (clickedTime <= cumulativeTime + clip.Duration)
+        {
+          int newIndex = sortedClips.IndexOf(clip);
+          _currentClipIndex = newIndex;
+
+          TimeSpan positionInClip = clickedTime - cumulativeTime;
+          PlayheadPosition = clickedTime.TotalSeconds * Config.PixelsPerSecond;
+          SeekRequested?.Invoke(clip, positionInClip);
+          return;
+        }
+        cumulativeTime += clip.Duration;
+      }
+    }
+
     // --- コマンドとメソッドの更新 ---
     [RelayCommand]
     private void PlayPause()
@@ -217,22 +240,11 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     public void OnTimerTick(TimeSpan currentVideoPosition)
     {
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
-
       var currentClip = _sortedClips[_currentClipIndex];
 
-      // クリップの終了判定
-      if (currentVideoPosition >= currentClip.TrimStart + currentClip.Duration)
-      {
-        GoToNextClip();
-      }
-      else
-      {
-        // 再生ヘッドの位置を計算して更新
-        // ViewModelはCanvasを知らないので、クリップのデータ(TimelinePosition)を基準に計算
-        double basePosition = currentClip.TimelinePosition;
-        double currentClipProgress = (currentVideoPosition - currentClip.TrimStart).TotalSeconds * Config.PixelsPerSecond;
-        PlayheadPosition = basePosition + currentClipProgress;
-      }
+      // 再生ヘッドの位置を更新する処理だけを行う
+      double currentClipProgress = (currentVideoPosition - currentClip.TrimStart).TotalSeconds * Config.PixelsPerSecond;
+      PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
     }
 
     // 次のクリップへ移動するロジック
