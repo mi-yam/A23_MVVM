@@ -66,21 +66,27 @@ namespace A23_MVVM
     }
 
     // イベントハンドラのシグネチャ（引数の型）をViewModelのイベント定義に合わせる
-    private void HandlePlaybackAction(PlaybackAction action, ClipViewModel clipToPlay)
+    private void HandlePlaybackAction(PlaybackAction action, ClipViewModel? clipToPlay)
     {
       switch (action)
       {
         case PlaybackAction.Play:
-          // ViewModel.ResetTransitionFlag(); // ★この行を削除
-          if (clipToPlay != null) // clipToPlayがnullの場合の考慮を追加
+          if (clipToPlay != null)
           {
             if (PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
             {
+              // MediaOpenedイベントでPositionが設定されるのを待つ
+              _pendingSeekPosition = TimeSpan.Zero;
               PreviewPlayer.Source = new Uri(clipToPlay.FilePath);
             }
-            // TrimStartは削除したので、常に0秒から再生
-            PreviewPlayer.Position = TimeSpan.Zero;
+            else
+            {
+              // ソースが同じなら、すぐに先頭へ
+              PreviewPlayer.Position = TimeSpan.Zero;
+            }
           }
+
+          // 再生を開始
           PreviewPlayer.Play();
           _playbackTimer.Start();
           break;
@@ -92,9 +98,8 @@ namespace A23_MVVM
 
         case PlaybackAction.Stop:
           PreviewPlayer.Stop();
+
           _playbackTimer.Stop();
-          // 任意: 停止時に再生ヘッドを先頭に戻す
-          // ViewModel.PlayheadPosition = 0; 
           break;
       }
     }
