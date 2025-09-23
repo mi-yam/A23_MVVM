@@ -71,26 +71,34 @@ namespace A23_MVVM
       switch (action)
       {
         case PlaybackAction.Play:
-          ViewModel.ResetTransitionFlag();
-          if (clipToPlay != null && PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
+          // ViewModelから clipToPlay がnullで渡された場合は、
+          // 現在の位置から再生を続けるという意味なので、Positionは変更しない
+          if (clipToPlay != null)
           {
-            PreviewPlayer.Source = new Uri(clipToPlay.FilePath);
+            if (PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
+            {
+              PreviewPlayer.Source = new Uri(clipToPlay.FilePath);
+            }
+            // TrimStartは削除したので、常に0秒から再生
+            PreviewPlayer.Position = TimeSpan.Zero;
           }
-          PreviewPlayer.Position = clipToPlay.TrimStart;
           PreviewPlayer.Play();
           _playbackTimer.Start();
           break;
+
         case PlaybackAction.Pause:
           PreviewPlayer.Pause();
           _playbackTimer.Stop();
           break;
+
         case PlaybackAction.Stop:
           PreviewPlayer.Stop();
           _playbackTimer.Stop();
+          // 任意: 停止時に再生ヘッドを先頭に戻す
+          // ViewModel.PlayheadPosition = 0; 
           break;
       }
     }
-
     private void PreviewPlayer_MediaEnded(object sender, RoutedEventArgs e)
     {
       // 再生が終わったことをViewModelに報告するだけ

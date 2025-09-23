@@ -183,84 +183,23 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       _isInteracting = false;
     }
 
-    public void SeekToTime(TimeSpan clickedTime) 
-    {
-      _isTransitioning = false;
-      PreparePlayback();
-      var sortedClips = _sortedClips;//Clips.OrderBy(c => c.TimelinePosition).ToList();
-      TimeSpan cumulativeTime = TimeSpan.Zero;
 
-      foreach(var clip in sortedClips)
-      {
-        if (clickedTime <= cumulativeTime + clip.Duration)
-        {
-          int newIndex = sortedClips.IndexOf(clip);
-          _currentClipIndex = newIndex;
-
-          TimeSpan positionInClip = clickedTime - cumulativeTime;
-          PlayheadPosition = clickedTime.TotalSeconds * Config.PixelsPerSecond;
-          SeekRequested?.Invoke(clip, positionInClip);
-          return;
-        }
-        cumulativeTime += clip.Duration;
-      }
-    }
-
-    // --- コマンドとメソッドの更新 ---
-    [RelayCommand]
-    private void PlayPause()
-    {
-      // 自身の再生状態を反転させる
-      IsPlaying = !IsPlaying;
-
-      if (IsPlaying)
-      {
-        _isTransitioning = false; // ★ロックを解除
-        if (_currentClipIndex == 0 && !_sortedClips.Any())
-        {
-          PreparePlayback();
-        }
-
-        // 現在再生すべきクリップを取得して、Viewに再生を依頼する
-        var clipToPlay = _sortedClips.ElementAtOrDefault(_currentClipIndex);
-        PlaybackActionRequested?.Invoke(PlaybackAction.Play, clipToPlay);
-        PlayPauseButtonContent = "一時停止";
-      }
-      else
-      {
-        PlaybackActionRequested?.Invoke(PlaybackAction.Pause, null);
-        PlayPauseButtonContent = "再生";
-      }
-    }
-    // --- 再生ロジックのメソッド群 ---
-    private void PreparePlayback()
-    {
-      _sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
-      _currentClipIndex = 0;
-    }
-
-    // TimerのTickイベントから呼び出されるメソッド
-    // TimerのTickイベントから呼び出されるメソッド
+    // OnTimerTickメソッドを以下のように書き換える
     public void OnTimerTick(TimeSpan currentVideoPosition)
     {
+      // 再生中でなければ何もしない
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
+
       var currentClip = _sortedClips[_currentClipIndex];
 
-      if (currentVideoPosition >= currentClip.Duration)
-      {
-        // 時間が来たら、次のクリップへ移動する
-        GoToNextClip();
-      }
-      else
-      {
-        // 再生ヘッドの位置を更新する
-        // TrimStartは0なので、currentVideoPositionを直接使う
-        double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
-        PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
-      }
+      // 再生ヘッドの位置を更新する処理だけを行う
+      // TrimStartは削除したので、currentVideoPositionを直接使う
+      double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
+      PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
     }
 
-    // 次のクリップへ移動するロジック
+
+    // GoToNextClipメソッドを以下のように書き換える
     public void GoToNextClip()
     {
       // もし既にクリップの切り替え処理中なら、何もしない（ロック）
@@ -273,6 +212,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (_currentClipIndex < _sortedClips.Count)
       {
         var nextClip = _sortedClips[_currentClipIndex];
+        // 次のクリップの再生をViewに要求する
         PlaybackActionRequested?.Invoke(PlaybackAction.Play, nextClip);
       }
       else
@@ -284,8 +224,69 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         PlayPauseButtonContent = "再生";
         _sortedClips.Clear();
         _currentClipIndex = 0;
+        _isTransitioning = false; // 最後にロックを解除
       }
     }
+
+    // PlayPauseメソッドを以下のように書き換える
+    [RelayCommand]
+    private void PlayPause()
+    {
+      IsPlaying = !IsPlaying;
+
+      if (IsPlaying)
+      {
+        // 再生を開始する時は、常にロックを解除する
+        _isTransitioning = false;
+
+        if (_currentClipIndex == 0 && !_sortedClips.Any())
+        {
+          PreparePlayback();
+        }
+        var clipToPlay = _sortedClips.ElementAtOrDefault(_currentClipIndex);
+        PlaybackActionRequested?.Invoke(PlaybackAction.Play, clipToPlay);
+        PlayPauseButtonContent = "一時停止";
+      }
+      else
+      {
+        PlaybackActionRequested?.Invoke(PlaybackAction.Pause, null);
+        PlayPauseButtonContent = "再生";
+      }
+    }
+
+    // SeekToTimeメソッドを以下のように書き換える
+    public void SeekToTime(TimeSpan clickedTime)
+    {
+      // シークする時は、常にロックを解除する
+      _isTransitioning = false;
+
+      PlayheadPosition = clickedTime.TotalSeconds * Config.PixelsPerSecond;
+      PreparePlayback();
+      var sortedClips = _sortedClips;
+      TimeSpan cumulativeTime = TimeSpan.Zero;
+
+      foreach (var clip in sortedClips)
+      {
+        // 許容誤差を持たせた判定
+        if (clickedTime <= cumulativeTime + clip.Duration)
+        {
+          int newIndex = sortedClips.IndexOf(clip);
+          _currentClipIndex = newIndex;
+          TimeSpan positionInClip = clickedTime - cumulativeTime;
+          SeekRequested?.Invoke(clip, positionInClip);
+          return;
+        }
+        cumulativeTime += clip.Duration;
+      }
+    }
+    // --- 再生ロジックのメソッド群 ---
+    private void PreparePlayback()
+    {
+      _sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
+      _currentClipIndex = 0;
+    }
+
+
     internal void ResetTransitionFlag()
     {
       _isTransitioning = false;
