@@ -36,7 +36,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
     // --- イベント ---
     public event Action<PlaybackAction, ClipViewModel?>? PlaybackActionRequested;
-    public event Action<ClipViewModel, TimeSpan>? SeekRequested;
+    public event Action<ClipViewModel, TimeSpan,bool>? SeekRequested;
 
     // --- メンバ変数 ---
     private List<ClipViewModel> _sortedClips = new List<ClipViewModel>();
@@ -188,9 +188,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
 
       var currentClip = _sortedClips[_currentClipIndex];
-
-      // 再生ヘッドの位置を更新する処理「だけ」を行う
-      // TrimStartは削除済みなので、currentVideoPositionを直接使う
       double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
       PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
     }
@@ -202,6 +199,8 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (_currentClipIndex < _sortedClips.Count)
       {
         var nextClip = _sortedClips[_currentClipIndex];
+        SeekRequested?.Invoke(nextClip, TimeSpan.Zero,false);
+
         PlaybackActionRequested?.Invoke(PlaybackAction.Play, nextClip);
       }
       else
@@ -247,13 +246,14 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
       foreach (var clip in sortedClips)
       {
-        // 許容誤差を持たせた判定
         if (clickedTime <= cumulativeTime + clip.Duration)
         {
           int newIndex = sortedClips.IndexOf(clip);
           _currentClipIndex = newIndex;
+          
           TimeSpan positionInClip = clickedTime - cumulativeTime;
-          SeekRequested?.Invoke(clip, positionInClip);
+          SeekRequested?.Invoke(clip, positionInClip,IsPlaying);
+
           return;
         }
         cumulativeTime += clip.Duration;

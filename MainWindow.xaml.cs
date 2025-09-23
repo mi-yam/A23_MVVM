@@ -34,11 +34,13 @@ namespace A23_MVVM
 
     //プレビュー関係
     private DispatcherTimer _playbackTimer;
-    private TimeSpan? _pendingSeekPosition = null;
     private List<VideoClip> _timelineClips = [];
     private List<VideoClip> _sortedClips = []; // 再生順に並べたクリップのリスト
     private int _currentClipIndex = 0;      // 現在再生中のクリップのインデックス
 
+    //シーク関係
+    private TimeSpan? _pendingSeekPosition = null;
+    private bool _resumePlaybackAfterSeek = false;
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext;
 
@@ -75,18 +77,13 @@ namespace A23_MVVM
           {
             if (PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
             {
-              // MediaOpenedイベントでPositionが設定されるのを待つ
-              _pendingSeekPosition = TimeSpan.Zero;
               PreviewPlayer.Source = new Uri(clipToPlay.FilePath);
             }
             else
             {
-              // ソースが同じなら、すぐに先頭へ
-              PreviewPlayer.Position = TimeSpan.Zero;
+              PreviewPlayer.Position = PreviewPlayer.Position;
             }
           }
-
-          // 再生を開始
           PreviewPlayer.Play();
           _playbackTimer.Start();
           break;
@@ -147,20 +144,15 @@ namespace A23_MVVM
       double clickedX = e.GetPosition(sender as IInputElement).X;
       TimeSpan clickedTime = TimeSpan.FromSeconds(clickedX / Config.PixelsPerSecond);
       ViewModel.SeekToTime(clickedTime);
-      //TODO: 再生位置を更新する
     }
 
-    private void HandleSeekRequst(ClipViewModel clip,TimeSpan positionInClip)
+    private void HandleSeekRequst(ClipViewModel clip,TimeSpan positionInClip,bool isPlaying)
     {
-      if (PreviewPlayer.Source?.OriginalString != clip.FilePath)
-      {
-        _pendingSeekPosition = positionInClip;
-        PreviewPlayer.Source = new Uri(clip.FilePath);
-      }
-      else
-      {
-        PreviewPlayer.Position = positionInClip;
-      }
+      //[DEV]:なぜかMediaOpendが呼ばれない。
+      _resumePlaybackAfterSeek = isPlaying;
+      PreviewPlayer.Close();
+      _pendingSeekPosition = positionInClip;
+      PreviewPlayer.Source = new Uri(clip.FilePath);
     }
 
     private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e) 
@@ -170,12 +162,11 @@ namespace A23_MVVM
         PreviewPlayer.Position = _pendingSeekPosition.Value;
         _pendingSeekPosition = null;
       }
-    }
-
-    private void PlayPauseButton_Click(object sender, RoutedEventArgs e)
-    {
-      // ViewModelのコマンドを呼び出すだけにする
-      ViewModel?.PlayPauseCommand.Execute(null);
+      if (_resumePlaybackAfterSeek)
+      {
+        PreviewPlayer.Play();
+        _resumePlaybackAfterSeek = false;
+      }
     }
 
   }//class MainWindow
