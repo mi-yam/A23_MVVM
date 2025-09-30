@@ -199,9 +199,9 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (_currentClipIndex < _sortedClips.Count)
       {
         var nextClip = _sortedClips[_currentClipIndex];
-        SeekRequested?.Invoke(nextClip, TimeSpan.Zero,false);
 
-        PlaybackActionRequested?.Invoke(PlaybackAction.Play, nextClip);
+        SeekRequested?.Invoke(nextClip, TimeSpan.Zero, true);
+
       }
       else
       {
@@ -213,7 +213,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         _currentClipIndex = 0;
       }
     }
-
     [RelayCommand]
     private void PlayPause()
     {
@@ -226,7 +225,15 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
           PreparePlayback();
         }
         var clipToPlay = _sortedClips.ElementAtOrDefault(_currentClipIndex);
-        PlaybackActionRequested?.Invoke(PlaybackAction.Play, clipToPlay);
+
+        // ★★★ 命令を一本化 ★★★
+        // PlaybackActionRequestedの代わりに、安全なSeekRequestedを呼び出す
+        // 再生再開なので、isPlayingフラグはtrueを渡す
+        if (clipToPlay != null)
+        {
+          SeekRequested?.Invoke(clipToPlay, TimeSpan.MinValue, true); // TimeSpan.MinValueを使い、「現在の位置から」を指示
+        }
+
         PlayPauseButtonContent = "一時停止";
       }
       else

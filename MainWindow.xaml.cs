@@ -70,19 +70,7 @@ namespace A23_MVVM
     {
       switch (action)
       {
-        case PlaybackAction.Play:
-          if (clipToPlay != null)
-          {
-            // 再生ボタンからの再生は、常に「現在の位置から」なので、positionInClipはPreviewPlayer.Positionを渡す
-            HandleSeekRequst(clipToPlay, PreviewPlayer.Position, true);
-          }
-          else if (ViewModel.IsPlaying) // clipToPlayがnullでも、再生状態なら再開
-          {
-            PreviewPlayer.Play();
-            _playbackTimer.Start();
-          }
-          break;
-
+        // Playの処理は完全に削除
         case PlaybackAction.Pause:
           PreviewPlayer.Pause();
           _playbackTimer.Stop();
@@ -91,9 +79,29 @@ namespace A23_MVVM
         case PlaybackAction.Stop:
           PreviewPlayer.Stop();
           _playbackTimer.Stop();
-          PreviewPlayer.Close(); // 停止時はCloseしてリソースを解放するのが望ましい
+          PreviewPlayer.Close();
           break;
       }
+    }
+
+    private void HandleSeekRequst(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
+    {
+      _resumePlaybackAfterSeek = isPlaying;
+      PreviewPlayer.Close();
+
+      // ★★★ 「現在の位置から」再生する場合の処理を追加 ★★★
+      if (positionInClip == TimeSpan.MinValue)
+      {
+        // 既存の再生位置を使い、Sourceだけを再設定する
+        _pendingSeekPosition = PreviewPlayer.Position;
+      }
+      else
+      {
+        // 通常のシーク処理
+        _pendingSeekPosition = positionInClip;
+      }
+
+      PreviewPlayer.Source = new Uri(clip.FilePath);
     }
     private void PreviewPlayer_MediaEnded(object sender, RoutedEventArgs e)
     {
@@ -139,17 +147,6 @@ namespace A23_MVVM
       double clickedX = e.GetPosition(sender as IInputElement).X;
       TimeSpan clickedTime = TimeSpan.FromSeconds(clickedX / Config.PixelsPerSecond);
       ViewModel.SeekToTime(clickedTime);
-    }
-
-    private void HandleSeekRequst(ClipViewModel clip,TimeSpan positionInClip,bool isPlaying)
-    {
-      // ステップ1: 「再生を再開するか」「どこに移動したいか」をメモ（予約）する
-      _resumePlaybackAfterSeek = isPlaying;
-      _pendingSeekPosition = positionInClip;
-
-      // ステップ2: プレイヤーを一度リセットし、新しい動画の読み込みを「依頼」する
-      PreviewPlayer.Close();
-      PreviewPlayer.Source = new Uri(clip.FilePath);
     }
 
     private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e)
