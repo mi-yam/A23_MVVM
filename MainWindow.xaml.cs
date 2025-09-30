@@ -58,7 +58,6 @@ namespace A23_MVVM
       _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
       _playbackTimer.Tick += PlaybackTimer_Tick;
       PreviewPlayer.MediaOpened += PreviewPlayer_MediaOpened;
-
     }
 
     // タイマーは、ViewModelに現在の再生時間を通知するだけ
@@ -67,7 +66,6 @@ namespace A23_MVVM
       ViewModel?.OnTimerTick(PreviewPlayer.Position);
     }
 
-    // イベントハンドラのシグネチャ（引数の型）をViewModelのイベント定義に合わせる
     private void HandlePlaybackAction(PlaybackAction action, ClipViewModel? clipToPlay)
     {
       switch (action)
@@ -75,17 +73,14 @@ namespace A23_MVVM
         case PlaybackAction.Play:
           if (clipToPlay != null)
           {
-            if (PreviewPlayer.Source?.OriginalString != clipToPlay.FilePath)
-            {
-              PreviewPlayer.Source = new Uri(clipToPlay.FilePath);
-            }
-            else
-            {
-              PreviewPlayer.Position = PreviewPlayer.Position;
-            }
+            // 再生ボタンからの再生は、常に「現在の位置から」なので、positionInClipはPreviewPlayer.Positionを渡す
+            HandleSeekRequst(clipToPlay, PreviewPlayer.Position, true);
           }
-          PreviewPlayer.Play();
-          _playbackTimer.Start();
+          else if (ViewModel.IsPlaying) // clipToPlayがnullでも、再生状態なら再開
+          {
+            PreviewPlayer.Play();
+            _playbackTimer.Start();
+          }
           break;
 
         case PlaybackAction.Pause:
@@ -95,8 +90,8 @@ namespace A23_MVVM
 
         case PlaybackAction.Stop:
           PreviewPlayer.Stop();
-
           _playbackTimer.Stop();
+          PreviewPlayer.Close(); // 停止時はCloseしてリソースを解放するのが望ましい
           break;
       }
     }
@@ -148,24 +143,28 @@ namespace A23_MVVM
 
     private void HandleSeekRequst(ClipViewModel clip,TimeSpan positionInClip,bool isPlaying)
     {
-      //[DEV]:なぜかMediaOpendが呼ばれない。
+      // ステップ1: 「再生を再開するか」「どこに移動したいか」をメモ（予約）する
       _resumePlaybackAfterSeek = isPlaying;
-      PreviewPlayer.Close();
       _pendingSeekPosition = positionInClip;
+
+      // ステップ2: プレイヤーを一度リセットし、新しい動画の読み込みを「依頼」する
+      PreviewPlayer.Close();
       PreviewPlayer.Source = new Uri(clip.FilePath);
     }
 
-    private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e) 
+    private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e)
     {
-      if(_pendingSeekPosition.HasValue)
+      // ステップ3: プレイヤーから「準備完了」の報告が来たので、予約していた作業を実行する
+      if (_pendingSeekPosition.HasValue)
       {
         PreviewPlayer.Position = _pendingSeekPosition.Value;
-        _pendingSeekPosition = null;
+        _pendingSeekPosition = null; // 予約を消す
       }
       if (_resumePlaybackAfterSeek)
       {
         PreviewPlayer.Play();
-        _resumePlaybackAfterSeek = false;
+        _playbackTimer.Start(); // タイマーも忘れずに
+        _resumePlaybackAfterSeek = false; // 予約を消す
       }
     }
 
