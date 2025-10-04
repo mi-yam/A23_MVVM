@@ -60,6 +60,7 @@ namespace A23_MVVM
       _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
       _playbackTimer.Tick += PlaybackTimer_Tick;
       PreviewPlayer.MediaOpened += PreviewPlayer_MediaOpened;
+      PreviewPlayer.MediaFailed += PreviewPlayer_MediaFailed;
     }
 
     // タイマーは、ViewModelに現在の再生時間を通知するだけ
@@ -84,39 +85,63 @@ namespace A23_MVVM
           break;
       }
     }
-
-    // in MainWindow.xaml.cs
-
     private void HandleSeekRequst(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
     {
-      // 要求されたクリップが現在読み込まれているものと違う場合、ソースを入れ替える
+      // 【ケース1】 要求されたクリップが現在読み込まれているものと違う、または何も読み込まれていない場合
+      // (最初の再生はここに該当します)
       if (_currentClipInPlayer != clip || PreviewPlayer.Source == null)
       {
-        _currentClipInPlayer = clip;
+        _currentClipInPlayer = clip; // 新しいクリップを記憶
         _resumePlaybackAfterSeek = isPlaying;
-        PreviewPlayer.Close(); // 古いメディアを閉じる
+        PreviewPlayer.Close();
 
-        // もし再生再開（MinValue）なら新しいクリップの先頭から、そうでなければ指定された位置から
+        // 指定された位置（または先頭）から再生するよう準備
         _pendingSeekPosition = (positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip;
-
         PreviewPlayer.Source = new Uri(clip.FilePath);
-        // この後の再生処理は PreviewPlayer_MediaOpened イベントハンドラに任せる
+        if (_pendingSeekPosition.HasValue)
+        {
+          PreviewPlayer.Position = _pendingSeekPosition.Value;
+          _pendingSeekPosition = null; // 予約を消す
+        }
+        if (_resumePlaybackAfterSeek)
+        {
+          PreviewPlayer.Play();
+          _playbackTimer.Start(); // タイマーも忘れずに
+          _resumePlaybackAfterSeek = false; // 予約を消す
+        }
       }
-      else
+      // 【ケース2】 要求されたクリップが既に読み込み済みのものと同じ場合
+      // (一時停止からの再開はここに該当します)
+      else if (isPlaying)
       {
-        // 正しいクリップが既に読み込まれている場合（シークまたは再生再開）
-        // 特定の再生位置が指定されていれば、そこにシークする
+        // もし特定の位置が指定されていれば、そこにシークする
         if (positionInClip != TimeSpan.MinValue)
         {
           PreviewPlayer.Position = positionInClip;
         }
 
-        // 再生フラグがtrueなら再生を開始する
-        if (isPlaying)
-        {
-          PreviewPlayer.Play();
-          _playbackTimer.Start();
-        }
+        // 再読み込みはせず、そのまま再生を再開する
+        PreviewPlayer.Play();
+        _playbackTimer.Start();
+      }
+    }
+    private void PreviewPlayer_MediaFailed(object? sender, ExceptionRoutedEventArgs e)
+    {
+      // エラー内容をメッセージボックスで表示
+      MessageBox.Show(
+          "動画の読み込みに失敗しました。\n\n" +
+          // 修正点：e.ErrorException.GetType().Name を使用
+          "エラーの種類: " + e.ErrorException.GetType().Name + "\n" +
+          "エラーメッセージ: " + e.ErrorException.Message,
+          "再生エラー",
+          MessageBoxButton.OK,
+          MessageBoxImage.Error);
+
+      // 再生状態をリセット
+      _currentClipInPlayer = null;
+      if (DataContext is MainWindowViewModel viewModel)
+      {
+        viewModel.IsPlaying = false;
       }
     }
 

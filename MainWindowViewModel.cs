@@ -159,12 +159,11 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       SelectedClip.TimelinePosition = newLeft;
     }
 
-    // EndInteractionメソッドを以下のように書き換える
     public void EndInteraction()
     {
       if (!_isInteracting || SelectedClip == null) return;
 
-      // Canva方式の再整列ロジック（これはそのまま残す）
+      // Canva方式の再整列ロジック
       var sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
       double currentPosition = 0;
       foreach (var clip in sortedClips)
@@ -221,21 +220,27 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
       if (IsPlaying)
       {
-        if (_currentClipIndex == 0 && !_sortedClips.Any())
+        // 再生準備がまだできていない場合（＝最初の再生時）
+        if (!_sortedClips.Any())
         {
           PreparePlayback();
         }
+
         var clipToPlay = _sortedClips.ElementAtOrDefault(_currentClipIndex);
 
         if (clipToPlay != null)
         {
-          SeekRequested?.Invoke(clipToPlay, TimeSpan.MinValue, true); // TimeSpan.MinValueを使い、「現在の位置から」を指示
+          // Viewに対して再生を要求する。
+          // 重要なのは、ここでは再生再開（TimeSpan.MinValue）ではなく、
+          // 現在のクリップを再生するという意図だけを伝えること。
+          SeekRequested?.Invoke(clipToPlay, TimeSpan.MinValue, true);
         }
 
         PlayPauseButtonContent = "一時停止";
       }
       else
       {
+        // 一時停止をViewに通知
         PlaybackActionRequested?.Invoke(PlaybackAction.Pause, null);
         PlayPauseButtonContent = "再生";
       }
