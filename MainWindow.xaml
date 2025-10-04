@@ -30,7 +30,7 @@
     </DockPanel>
 
     <Grid Grid.Row="0" Grid.Column="2">
-      <MediaElement x:Name="PreviewPlayer" LoadedBehavior="Manual" Margin="5"/>
+      <MediaElement x:Name="PreviewPlayer" LoadedBehavior="Manual" Margin="5" MediaEnded="PreviewPlayer_MediaEnded" />
 
       <Button Content="{Binding PlayPauseButtonContent}" Command="{Binding PlayPauseCommand}"
                     Width="100" Height="30"

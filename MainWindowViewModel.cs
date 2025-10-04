@@ -213,6 +213,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         _currentClipIndex = 0;
       }
     }
+
     [RelayCommand]
     private void PlayPause()
     {
@@ -226,9 +227,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         }
         var clipToPlay = _sortedClips.ElementAtOrDefault(_currentClipIndex);
 
-        // ★★★ 命令を一本化 ★★★
-        // PlaybackActionRequestedの代わりに、安全なSeekRequestedを呼び出す
-        // 再生再開なので、isPlayingフラグはtrueを渡す
         if (clipToPlay != null)
         {
           SeekRequested?.Invoke(clipToPlay, TimeSpan.MinValue, true); // TimeSpan.MinValueを使い、「現在の位置から」を指示

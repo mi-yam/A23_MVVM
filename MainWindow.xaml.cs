@@ -37,6 +37,8 @@ namespace A23_MVVM
     private List<VideoClip> _timelineClips = [];
     private List<VideoClip> _sortedClips = []; // 再生順に並べたクリップのリスト
     private int _currentClipIndex = 0;      // 現在再生中のクリップのインデックス
+    private ClipViewModel? _currentClipInPlayer = null; // この行を追加
+
 
     //シーク関係
     private TimeSpan? _pendingSeekPosition = null;
@@ -70,7 +72,6 @@ namespace A23_MVVM
     {
       switch (action)
       {
-        // Playの処理は完全に削除
         case PlaybackAction.Pause:
           PreviewPlayer.Pause();
           _playbackTimer.Stop();
@@ -84,25 +85,41 @@ namespace A23_MVVM
       }
     }
 
+    // in MainWindow.xaml.cs
+
     private void HandleSeekRequst(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
     {
-      _resumePlaybackAfterSeek = isPlaying;
-      PreviewPlayer.Close();
-
-      // ★★★ 「現在の位置から」再生する場合の処理を追加 ★★★
-      if (positionInClip == TimeSpan.MinValue)
+      // 要求されたクリップが現在読み込まれているものと違う場合、ソースを入れ替える
+      if (_currentClipInPlayer != clip || PreviewPlayer.Source == null)
       {
-        // 既存の再生位置を使い、Sourceだけを再設定する
-        _pendingSeekPosition = PreviewPlayer.Position;
+        _currentClipInPlayer = clip;
+        _resumePlaybackAfterSeek = isPlaying;
+        PreviewPlayer.Close(); // 古いメディアを閉じる
+
+        // もし再生再開（MinValue）なら新しいクリップの先頭から、そうでなければ指定された位置から
+        _pendingSeekPosition = (positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip;
+
+        PreviewPlayer.Source = new Uri(clip.FilePath);
+        // この後の再生処理は PreviewPlayer_MediaOpened イベントハンドラに任せる
       }
       else
       {
-        // 通常のシーク処理
-        _pendingSeekPosition = positionInClip;
-      }
+        // 正しいクリップが既に読み込まれている場合（シークまたは再生再開）
+        // 特定の再生位置が指定されていれば、そこにシークする
+        if (positionInClip != TimeSpan.MinValue)
+        {
+          PreviewPlayer.Position = positionInClip;
+        }
 
-      PreviewPlayer.Source = new Uri(clip.FilePath);
+        // 再生フラグがtrueなら再生を開始する
+        if (isPlaying)
+        {
+          PreviewPlayer.Play();
+          _playbackTimer.Start();
+        }
+      }
     }
+
     private void PreviewPlayer_MediaEnded(object sender, RoutedEventArgs e)
     {
       // 再生が終わったことをViewModelに報告するだけ
