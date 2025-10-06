@@ -42,7 +42,6 @@ namespace A23_MVVM
       _filePath = model.FilePath;
       _duration = model.Duration;
       _trimStart = model.TrimStart;
-      _trimEnd = model.TrimEnd;
       // Modelのデータを元に、UI用のプロパティを初期化
       _width = model.Duration.TotalSeconds * Config.PixelsPerSecond;
       _timelinePosition = model.TimelinePosition;

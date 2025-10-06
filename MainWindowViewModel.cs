@@ -20,7 +20,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
   {
     // --- プロパティ ---
     public ObservableCollection<ClipViewModel> Clips { get; } = new ObservableCollection<ClipViewModel>();
-    private List<ClipViewModel> _swappedClips = new List<ClipViewModel>(); 
+    private List<ClipViewModel> _swappedClips = new List<ClipViewModel>();
 
     [ObservableProperty]
     private string _playPauseButtonContent = "再生";
@@ -36,7 +36,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
     // --- イベント ---
     public event Action<PlaybackAction, ClipViewModel?>? PlaybackActionRequested;
-    public event Action<ClipViewModel, TimeSpan,bool>? SeekRequested;
+    public event Action<ClipViewModel, TimeSpan, bool>? SeekRequested;
 
     // --- メンバ変数 ---
     private List<ClipViewModel> _sortedClips = new List<ClipViewModel>();
@@ -137,7 +137,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
           mousePositionOnTimeline.X - clickedClip.TimelinePosition,
           0 // Y座標は今回は無関係
       );
-       _isDragging = true;
+      _isDragging = true;
 
       // 5. 操作前の状態をスナップショットとして保存
       _startMousePosition = mousePositionOnTimeline;
@@ -205,7 +205,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       {
         var nextClip = _sortedClips[_currentClipIndex];
 
-        SeekRequested?.Invoke(nextClip,nextClip.TrimStart, true);
+        SeekRequested?.Invoke(nextClip, nextClip.TrimStart, true);
 
       }
       else
@@ -223,6 +223,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private void PlayPause()
     {
       IsPlaying = !IsPlaying;
+      //MessageBox.Show("MediaOpenedイベントが実行されました！");
 
       if (IsPlaying)
       {
@@ -231,14 +232,17 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         {
           PreparePlayback();
         }
-
+        //再生順に並べたクリップのリスト (_sortedClips) から、
+        //今再生すべき順番 (_currentClipIndex) にあるクリップを取り出してください。
+        //ただし、もし最後のクリップも再生し終わっていて、もう次のクリップが存在しない場合は、
+        //エラーにせず、代わりに nullを clipToPlay に入れてください
         var clipToPlay = _sortedClips.ElementAtOrDefault(_currentClipIndex);
 
         if (clipToPlay != null)
         {
           // Viewに対して再生を要求する。
           // 現在のクリップを再生するという意図だけを伝えること。
-          SeekRequested?.Invoke(clipToPlay, clipToPlay.TrimStart, true);
+          SeekRequested?.Invoke(clipToPlay, TimeSpan.Zero, true);
         }
 
         PlayPauseButtonContent = "一時停止";
@@ -264,9 +268,9 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         {
           int newIndex = sortedClips.IndexOf(clip);
           _currentClipIndex = newIndex;
-          
+
           TimeSpan positionInClip = clickedTime - cumulativeTime;
-          SeekRequested?.Invoke(clip, positionInClip,IsPlaying);
+          SeekRequested?.Invoke(clip, positionInClip, IsPlaying);
 
           return;
         }
@@ -284,7 +288,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     [RelayCommand]
     private void SplitClip()
     {
-      // 1. 分割対象のクリップとクリップ内での分割時間を特定 (変更なし)
+      // 1. 分割対象のクリップとクリップ内での分割時間を特定
       var playheadTime = TimeSpan.FromSeconds(PlayheadPosition / Config.PixelsPerSecond);
       var sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
       ClipViewModel? targetClip = null;
@@ -304,27 +308,24 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       var splitTimeInClip = playheadTime - cumulativeTime;
       if (splitTimeInClip <= TimeSpan.Zero || splitTimeInClip >= targetClip.Duration) return;
 
-      // ★★★ここからが修正箇所です★★★
-
       // 2. 元クリップの元の長さを、変更前に保存しておく
       var originalDuration = targetClip.Duration;
 
       // 3. 新しいクリップ（後半部分）の「設計図」を作成する
-      //    計算には、変更前の長さ(originalDuration)を使う
       var newClipModel = new VideoClip
       {
         FilePath = targetClip.FilePath,
         TrimStart = targetClip.TrimStart + splitTimeInClip,
-        Duration = originalDuration - splitTimeInClip, 
+        Duration = originalDuration - splitTimeInClip,
       };
       var newClipViewModel = new ClipViewModel(newClipModel);
 
-      // 4. 元のクリップ（前半部分）の「設計図」を更新する
-      targetClip.Duration = splitTimeInClip;
-      targetClip.Width = targetClip.Duration.TotalSeconds * Config.PixelsPerSecond;
-      targetClip.Model.Duration = targetClip.Duration;
+      //    元のクリップ（前半部分）の「設計図」を完全に更新する
+      targetClip.Model.Duration = splitTimeInClip; // ModelのDurationを更新
+      targetClip.Duration = splitTimeInClip;       // ViewModelのDurationを更新
+      targetClip.Width = splitTimeInClip.TotalSeconds * Config.PixelsPerSecond; // UIの幅も更新
 
-      // 5. 新しいクリップをリストに追加し、タイムラインを再整列 (変更なし)
+      // 5. 新しいクリップをリストに追加し、タイムラインを再整列
       int targetIndex = Clips.IndexOf(targetClip);
       Clips.Insert(targetIndex + 1, newClipViewModel);
 
@@ -337,4 +338,4 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       }
     }
   }
-}
+  }

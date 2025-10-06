@@ -95,15 +95,15 @@ namespace A23_MVVM
 
         var actualStartPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
         _pendingSeekPosition = actualStartPosition;
+        
+        PreviewPlayer.Pause();
 
         PreviewPlayer.Source = new Uri(clip.FilePath);
-        PreviewPlayer.Position = clip.TrimStart + positionInClip;
       }
       else
       {
         if (positionInClip != TimeSpan.MinValue)
         {
-          // 修正点：TrimStartを考慮してシーク
           PreviewPlayer.Position = clip.TrimStart + positionInClip;
         }
 
