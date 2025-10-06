@@ -187,6 +187,12 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
 
       var currentClip = _sortedClips[_currentClipIndex];
+      if (currentVideoPosition >= currentClip.TrimStart + currentClip.Duration)
+      {
+        GoToNextClip();
+        return; // 次のクリップの処理に移るので、ここで処理を抜ける
+      }
+
       double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
       PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
     }
@@ -199,7 +205,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       {
         var nextClip = _sortedClips[_currentClipIndex];
 
-        SeekRequested?.Invoke(nextClip, TimeSpan.Zero, true);
+        SeekRequested?.Invoke(nextClip,nextClip.TrimStart, true);
 
       }
       else
@@ -231,9 +237,8 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         if (clipToPlay != null)
         {
           // Viewに対して再生を要求する。
-          // 重要なのは、ここでは再生再開（TimeSpan.MinValue）ではなく、
           // 現在のクリップを再生するという意図だけを伝えること。
-          SeekRequested?.Invoke(clipToPlay, TimeSpan.MinValue, true);
+          SeekRequested?.Invoke(clipToPlay, clipToPlay.TrimStart, true);
         }
 
         PlayPauseButtonContent = "一時停止";
@@ -246,7 +251,6 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       }
     }
 
-    // SeekToTimeメソッドを以下のように書き換える
     public void SeekToTime(TimeSpan clickedTime)
     {
       PlayheadPosition = clickedTime.TotalSeconds * Config.PixelsPerSecond;
@@ -275,7 +279,62 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       _sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
       _currentClipIndex = 0;
     }
+    // in MainWindowViewModel.cs
 
+    [RelayCommand]
+    private void SplitClip()
+    {
+      // 1. 分割対象のクリップとクリップ内での分割時間を特定 (変更なし)
+      var playheadTime = TimeSpan.FromSeconds(PlayheadPosition / Config.PixelsPerSecond);
+      var sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
+      ClipViewModel? targetClip = null;
+      TimeSpan cumulativeTime = TimeSpan.Zero;
 
+      foreach (var clip in sortedClips)
+      {
+        if (playheadTime >= cumulativeTime && playheadTime < cumulativeTime + clip.Duration)
+        {
+          targetClip = clip;
+          break;
+        }
+        cumulativeTime += clip.Duration;
+      }
+      if (targetClip == null) return;
+
+      var splitTimeInClip = playheadTime - cumulativeTime;
+      if (splitTimeInClip <= TimeSpan.Zero || splitTimeInClip >= targetClip.Duration) return;
+
+      // ★★★ここからが修正箇所です★★★
+
+      // 2. 元クリップの元の長さを、変更前に保存しておく
+      var originalDuration = targetClip.Duration;
+
+      // 3. 新しいクリップ（後半部分）の「設計図」を作成する
+      //    計算には、変更前の長さ(originalDuration)を使う
+      var newClipModel = new VideoClip
+      {
+        FilePath = targetClip.FilePath,
+        TrimStart = targetClip.TrimStart + splitTimeInClip,
+        Duration = originalDuration - splitTimeInClip, 
+      };
+      var newClipViewModel = new ClipViewModel(newClipModel);
+
+      // 4. 元のクリップ（前半部分）の「設計図」を更新する
+      targetClip.Duration = splitTimeInClip;
+      targetClip.Width = targetClip.Duration.TotalSeconds * Config.PixelsPerSecond;
+      targetClip.Model.Duration = targetClip.Duration;
+
+      // 5. 新しいクリップをリストに追加し、タイムラインを再整列 (変更なし)
+      int targetIndex = Clips.IndexOf(targetClip);
+      Clips.Insert(targetIndex + 1, newClipViewModel);
+
+      double currentPosition = 0;
+      foreach (var clip in Clips.OrderBy(c => c.TimelinePosition))
+      {
+        clip.TimelinePosition = currentPosition;
+        clip.Model.TimelinePosition = currentPosition;
+        currentPosition += clip.Width;
+      }
+    }
   }
 }

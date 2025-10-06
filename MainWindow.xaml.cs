@@ -87,42 +87,47 @@ namespace A23_MVVM
     }
     private void HandleSeekRequst(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
     {
-      // 【ケース1】 要求されたクリップが現在読み込まれているものと違う、または何も読み込まれていない場合
-      // (最初の再生はここに該当します)
       if (_currentClipInPlayer != clip || PreviewPlayer.Source == null)
       {
-        _currentClipInPlayer = clip; // 新しいクリップを記憶
+        _currentClipInPlayer = clip;
         _resumePlaybackAfterSeek = isPlaying;
         PreviewPlayer.Close();
 
-        // 指定された位置（または先頭）から再生するよう準備
-        _pendingSeekPosition = (positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip;
+        var actualStartPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
+        _pendingSeekPosition = actualStartPosition;
+
         PreviewPlayer.Source = new Uri(clip.FilePath);
-        if (_pendingSeekPosition.HasValue)
-        {
-          PreviewPlayer.Position = _pendingSeekPosition.Value;
-          _pendingSeekPosition = null; // 予約を消す
-        }
-        if (_resumePlaybackAfterSeek)
-        {
-          PreviewPlayer.Play();
-          _playbackTimer.Start(); // タイマーも忘れずに
-          _resumePlaybackAfterSeek = false; // 予約を消す
-        }
+        PreviewPlayer.Position = clip.TrimStart + positionInClip;
       }
-      // 【ケース2】 要求されたクリップが既に読み込み済みのものと同じ場合
-      // (一時停止からの再開はここに該当します)
-      else if (isPlaying)
+      else
       {
-        // もし特定の位置が指定されていれば、そこにシークする
         if (positionInClip != TimeSpan.MinValue)
         {
-          PreviewPlayer.Position = positionInClip;
+          // 修正点：TrimStartを考慮してシーク
+          PreviewPlayer.Position = clip.TrimStart + positionInClip;
         }
 
-        // 再読み込みはせず、そのまま再生を再開する
+        if (isPlaying)
+        {
+          PreviewPlayer.Play();
+          _playbackTimer.Start();
+        }
+      }
+    }
+
+    private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e)
+    {
+      if (_pendingSeekPosition.HasValue)
+      {
+        // ここは変更なし (既にTrimStartが加算された値が入っている)
+        PreviewPlayer.Position = _pendingSeekPosition.Value;
+        _pendingSeekPosition = null;
+      }
+      if (_resumePlaybackAfterSeek)
+      {
         PreviewPlayer.Play();
         _playbackTimer.Start();
+        _resumePlaybackAfterSeek = false;
       }
     }
     private void PreviewPlayer_MediaFailed(object? sender, ExceptionRoutedEventArgs e)
@@ -189,22 +194,6 @@ namespace A23_MVVM
       double clickedX = e.GetPosition(sender as IInputElement).X;
       TimeSpan clickedTime = TimeSpan.FromSeconds(clickedX / Config.PixelsPerSecond);
       ViewModel.SeekToTime(clickedTime);
-    }
-
-    private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e)
-    {
-      // ステップ3: プレイヤーから「準備完了」の報告が来たので、予約していた作業を実行する
-      if (_pendingSeekPosition.HasValue)
-      {
-        PreviewPlayer.Position = _pendingSeekPosition.Value;
-        _pendingSeekPosition = null; // 予約を消す
-      }
-      if (_resumePlaybackAfterSeek)
-      {
-        PreviewPlayer.Play();
-        _playbackTimer.Start(); // タイマーも忘れずに
-        _resumePlaybackAfterSeek = false; // 予約を消す
-      }
     }
 
   }//class MainWindow
