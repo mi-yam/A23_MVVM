@@ -28,11 +28,8 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     [ObservableProperty]
     private bool _isPlaying;
 
-    [ObservableProperty]
-    private double _playheadPosition;
-
-    [ObservableProperty]
-    private ClipViewModel? _selectedClip;
+    public List<ClipViewModel> SortedClips { get; private set; } = new List<ClipViewModel>();
+    public int CurrentClipIndex { get; private set; } = 0;
 
     // --- イベント ---
     public event Action<PlaybackAction, ClipViewModel?>? PlaybackActionRequested;
@@ -46,6 +43,11 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private double _dragStartLeft;
     private bool _isInteracting = false;
     public TimeSpan CurrentPlayerPosition { get; set; }
+    public double PlayheadPosition { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DeleteClipCommand))] // DeleteClipCommandの状態も更新
+    private ClipViewModel? _selectedClip;
 
     // --- コンストラクタ ---
     public MainWindowViewModel()
@@ -111,11 +113,36 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     [RelayCommand]
     private void DeselectAll()
     {
-      if (SelectedClip != null)
+      if (_selectedClip != null)
       {
-        SelectedClip.IsSelected = false;
-        SelectedClip = null;
+        _selectedClip.IsSelected = false;
+        _selectedClip = null;
       }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDeleteClip))]
+    private void DeleteClip()
+    {
+      if (SelectedClip == null) return;
+
+      Clips.Remove(SelectedClip);
+
+      // タイムラインを再整列
+      double currentPosition = 0;
+      foreach (var clip in Clips.OrderBy(c => c.TimelinePosition))
+      {
+        clip.TimelinePosition = currentPosition;
+        clip.Model.TimelinePosition = currentPosition;
+        currentPosition += clip.Width;
+      }
+
+      SelectedClip = null;
+    }
+
+    private bool CanDeleteClip()
+    {
+      // 選択されたクリップがある場合のみ、コマンドを実行可能にする
+      return SelectedClip != null;
     }
 
     // --- Viewから呼び出されるメソッド群 ---
@@ -131,7 +158,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
       // 3. クリックされたクリップを選択状態にする
       clickedClip.IsSelected = true;
-      SelectedClip = clickedClip;
+      _selectedClip = clickedClip;
 
       // 4. マウスの位置を元に、ドラッグかトリミングかを判断し、準備する
       Point mousePositionOnClip = new Point(
@@ -148,7 +175,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     // UpdateInteractionメソッドを以下のように書き換える
     public void UpdateInteraction(Point currentMousePosition)
     {
-      if (!_isInteracting || SelectedClip == null) return;
+      if (!_isInteracting || _selectedClip == null) return;
 
       double deltaX = currentMousePosition.X - _startMousePosition.X;
 
@@ -157,12 +184,12 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       {
         newLeft = 0;
       }
-      SelectedClip.TimelinePosition = newLeft;
+      _selectedClip.TimelinePosition = newLeft;
     }
 
     public void EndInteraction()
     {
-      if (!_isInteracting || SelectedClip == null) return;
+      if (!_isInteracting || _selectedClip == null) return;
 
       // Canva方式の再整列ロジック
       var sortedClips = Clips.OrderBy(c => c.TimelinePosition).ToList();
@@ -183,11 +210,8 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     }
 
 
-    public void OnTimerTick()
+    public void OnTimerTick(TimeSpan currentVideoPosition)
     {
-      // 引数で受け取る代わりに、保持している最新の再生位置を使う
-      var currentVideoPosition = CurrentPlayerPosition;
-
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
 
       var currentClip = _sortedClips[_currentClipIndex];
@@ -197,8 +221,9 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         return;
       }
 
-      var progressWithinClip = currentVideoPosition - currentClip.TrimStart;
-      PlayheadPosition = currentClip.TimelinePosition + progressWithinClip.TotalSeconds * Config.PixelsPerSecond;
+      // ↓↓↓ 2. PlayheadPositionの計算と更新処理を完全に削除します ↓↓↓
+      // var progressWithinClip = currentVideoPosition - currentClip.TrimStart;
+      // PlayheadPosition = currentClip.TimelinePosition + progressWithinClip.TotalSeconds * Config.PixelsPerSecond;
     }
 
 

@@ -45,8 +45,11 @@
                       MouseMove="Timeline_MouseMove"
                       MouseLeftButtonUp="Timeline_MouseLeftButtonUp" Grid.ColumnSpan="2">
         </ItemsControl>
-        <Rectangle Fill="#E81123" Width="2" HorizontalAlignment="Left" 
-                   Margin="{Binding PlayheadPosition, Converter={StaticResource LeftMarginConverter}}"/>
+        <Rectangle x:Name="Playhead" Fill="#E81123" Width="2" HorizontalAlignment="Left">
+          <Rectangle.RenderTransform>
+            <TranslateTransform X="0" />
+          </Rectangle.RenderTransform>
+        </Rectangle>
       </Grid>
     </Border>
 
