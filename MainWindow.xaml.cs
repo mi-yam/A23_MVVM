@@ -24,31 +24,26 @@ namespace A23_MVVM
 
     public MainWindow()
     {
+      Core.Initialize();
       InitializeComponent();
+
       var viewModel = new MainWindowViewModel();
       DataContext = viewModel;
 
-      // --- VLCの初期化 ---
-      Core.Initialize(); // ライブラリの初期化を最初に行う
       _libVLC = new LibVLC();
       _mediaPlayer = new MediaPlayer(_libVLC);
-      PreviewPlayer.MediaPlayer = _mediaPlayer; // XAMLのVideoViewにMediaPlayerを接続
+      PreviewPlayer.MediaPlayer = _mediaPlayer;
 
-      // --- イベントの購読 ---
       viewModel.PlaybackActionRequested += HandlePlaybackAction;
-      viewModel.SeekRequested += HandleSeekRequest; // メソッド名を変更
+      viewModel.SeekRequested += HandleSeekRequest;
       _mediaPlayer.EncounteredError += (s, e) => MessageBox.Show("再生エラーが発生しました。");
-      _mediaPlayer.TimeChanged += (s, e) =>
-      {
-        // BeginInvokeに変更し、処理を予約するだけにしてUIスレッドをブロックしないようにする
-        Application.Current.Dispatcher.BeginInvoke(() =>
-        {
-          ViewModel?.OnTimerTick(TimeSpan.FromMilliseconds(e.Time));
-        });
-      };
 
-      // 再生タイマーは、もはや再生位置の通知には不要だが、UI更新の補助として残しても良い
-      _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+      // ★★★修正点1：TimeChangedは直接UIを更新せず、ViewModelの変数に値を渡すだけにする★★★
+      _mediaPlayer.TimeChanged += (s, e) => ViewModel.CurrentPlayerPosition = TimeSpan.FromMilliseconds(e.Time);
+
+      // ★★★修正点2：UI更新専用のタイマーをセットアップ★★★
+      _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) }; // 約30fpsでUIを更新
+      _playbackTimer.Tick += (s, e) => ViewModel.OnTimerTick(); // タイマーがViewModelのUI更新メソッドを呼び出す
     }
 
     private void HandlePlaybackAction(PlaybackAction action, ClipViewModel? clipToPlay)
@@ -57,35 +52,42 @@ namespace A23_MVVM
       {
         case PlaybackAction.Pause:
           _mediaPlayer.Pause();
+          _playbackTimer.Stop(); // ★タイマーを停止
           break;
         case PlaybackAction.Stop:
           _mediaPlayer.Stop();
+          _playbackTimer.Stop(); // ★タイマーを停止
           break;
       }
     }
 
     private void HandleSeekRequest(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
     {
+      // ... (既存のコードは変更なし)
       _resumePlaybackAfterSeek = isPlaying;
       _pendingSeekPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
 
-      // 既に同じクリップが再生中の場合は、シークのみ行う
       if (_currentClipInPlayer == clip && _mediaPlayer.IsPlaying)
       {
         _mediaPlayer.Time = (long)_pendingSeekPosition.Value.TotalMilliseconds;
-        if (isPlaying) _mediaPlayer.Play();
+        if (isPlaying)
+        {
+          _mediaPlayer.Play();
+          _playbackTimer.Start(); // ★タイマーを開始
+        }
         return;
       }
 
       _currentClipInPlayer = clip;
-
-      // 新しいMediaオブジェクトを作成して再生を開始
       var media = new Media(_libVLC, new Uri(clip.FilePath));
       _mediaPlayer.Media = media;
 
-      // 再生開始位置を設定してから再生
       _mediaPlayer.Time = (long)_pendingSeekPosition.Value.TotalMilliseconds;
-      if (isPlaying) _mediaPlayer.Play();
+      if (isPlaying)
+      {
+        _mediaPlayer.Play();
+        _playbackTimer.Start(); // ★タイマーを開始
+      }
     }
 
     private void Timeline_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

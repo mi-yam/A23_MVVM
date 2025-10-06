@@ -183,9 +183,10 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     }
 
 
-    public void OnTimerTick(TimeSpan currentVideoPosition)
+    public void OnTimerTick()
     {
-      currentVideoPosition = CurrentPlayerPosition;
+      // 引数で受け取る代わりに、保持している最新の再生位置を使う
+      var currentVideoPosition = CurrentPlayerPosition;
 
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
 
@@ -193,14 +194,11 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       if (currentVideoPosition >= currentClip.TrimStart + currentClip.Duration)
       {
         GoToNextClip();
-        return; // 次のクリップの処理に移るので、ここで処理を抜ける
+        return;
       }
-      // 再生位置からクリップの開始時間を引くことで、クリップ内での再生経過時間を算出
+
       var progressWithinClip = currentVideoPosition - currentClip.TrimStart;
-
-      // タイムラインの赤い線を正しい位置に表示するための計算
       PlayheadPosition = currentClip.TimelinePosition + progressWithinClip.TotalSeconds * Config.PixelsPerSecond;
-
     }
 
 
