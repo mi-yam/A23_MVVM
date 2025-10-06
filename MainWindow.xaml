@@ -4,95 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:A23_MVVM"
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         mc:Ignorable="d"
         Title="My Video Editor" Height="600" Width="1000"
         >
+  <Grid Grid.Row="0" Grid.Column="2">
+    <vlc:VideoView x:Name="PreviewPlayer" Margin="5" />
 
-  <Window.Resources>
-    <local:LeftMarginConverter x:Key="LeftMarginConverter"/>
-  </Window.Resources>
-
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition Height ="*"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="200" />
-    </Grid.RowDefinitions>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="300"/>
-      <ColumnDefinition Width="Auto"/>
-      <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
-
-    <DockPanel Grid.Row="0" Grid.Column="0" Margin="5">
-      <Button DockPanel.Dock="Top" Content="動画ファイルを開く" Margin="5" Padding="5" 
-                    Command="{Binding OpenFileCommand}"/>
-    </DockPanel>
-
-    <Grid Grid.Row="0" Grid.Column="2">
-      <MediaElement x:Name="PreviewPlayer" LoadedBehavior="Manual" Margin="5" MediaEnded="PreviewPlayer_MediaEnded" />
-      
-      <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,50">
-        <Button Content="✂ ここで分割" Command="{Binding SplitClipCommand}" 
-                Padding="10,5" FontSize="14" FontWeight="Bold"/>
-      </StackPanel>
-      
-      <Button Content="{Binding PlayPauseButtonContent}" Command="{Binding PlayPauseCommand}"
-                    Width="100" Height="30"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
-    </Grid>
-
-    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Background="#FF3E3E42" Margin="5">
-      <Grid>
-
-        <Rectangle Fill="Transparent" MouseLeftButtonDown="TimelineBackground_MouseLeftButtonDown" />
-
-        <ItemsControl ItemsSource="{Binding Clips}"
-                              MouseLeftButtonDown="Timeline_MouseLeftButtonDown"
-                              MouseMove="Timeline_MouseMove"
-                              MouseLeftButtonUp="Timeline_MouseLeftButtonUp" Grid.ColumnSpan="2">
-
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <Canvas />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Border Width="{Binding Width}" Height="60"
-                                    Background="CornflowerBlue"
-                                    ToolTip="{Binding TimelinePosition, StringFormat='Position: {0:F2}'}">
-                <Border.Style>
-                  <Style TargetType="Border">
-                    <Setter Property="BorderBrush" Value="Black"/>
-                    <Setter Property="BorderThickness" Value="1"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                        <Setter Property="BorderBrush" Value="#FFD700"/>
-                        <Setter Property="BorderThickness" Value="2"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </Border.Style>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-
-          <ItemsControl.ItemContainerStyle>
-            <Style TargetType="ContentPresenter">
-              <Setter Property="Canvas.Left" Value="{Binding TimelinePosition}" />
-            </Style>
-          </ItemsControl.ItemContainerStyle>
-        </ItemsControl>
-
-        <Rectangle Fill="#E81123" Width="2" HorizontalAlignment="Left" 
-           Margin="{Binding PlayheadPosition, Converter={StaticResource LeftMarginConverter}}"/>
-        
-      </Grid>
-    </Border>
-
-    <GridSplitter Grid.Row="0" Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="LightGray"/>
-    <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray"/>
   </Grid>
+
 </Window>

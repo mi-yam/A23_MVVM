@@ -1,46 +1,21 @@
-﻿using A23_MVVM;
-using Microsoft.Win32;
+﻿// in MainWindow.xaml.cs
+
+// 1. 必要なusingディレクティブを追加
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using LibVLCSharp.Shared; // VLCライブラリのコア
 using static A23_MVVM.MainWindowViewModel;
 
 namespace A23_MVVM
 {
-  public partial class MainWindow : Window
+  public partial class MainWindow : Window, IDisposable
   {
-
-    //マウス関係の処理
-    private bool isDragging = false;
-    // マウス操作の開始時の状態を記憶しておくための変数
-    private Point _dragStartMousePosition;
-    private double _dragStartLeft;
-    private double _dragStartWidth;
-    private TimeSpan _dragStartTrimStart;
-    private TimeSpan _dragStartDuration;
-
-    private Point mouseOffset;
-    private FrameworkElement? targetElement = null;
-    private Border? _selectedClipUI = null; // 現在選択されているクリップのUI
-
-    //プレビュー関係
+    private LibVLC _libVLC;
+    private MediaPlayer _mediaPlayer;
     private DispatcherTimer _playbackTimer;
-    private List<VideoClip> _timelineClips = [];
-    private List<VideoClip> _sortedClips = []; // 再生順に並べたクリップのリスト
-    private int _currentClipIndex = 0;      // 現在再生中のクリップのインデックス
-    private ClipViewModel? _currentClipInPlayer = null; // この行を追加
+    private ClipViewModel? _currentClipInPlayer = null;
 
-
-    //シーク関係
     private TimeSpan? _pendingSeekPosition = null;
     private bool _resumePlaybackAfterSeek = false;
 
@@ -52,21 +27,20 @@ namespace A23_MVVM
       var viewModel = new MainWindowViewModel();
       DataContext = viewModel;
 
-      // イベントの購読
+      // --- VLCの初期化 ---
+      Core.Initialize(); // ライブラリの初期化を最初に行う
+      _libVLC = new LibVLC();
+      _mediaPlayer = new MediaPlayer(_libVLC);
+      PreviewPlayer.MediaPlayer = _mediaPlayer; // XAMLのVideoViewにMediaPlayerを接続
+
+      // --- イベントの購読 ---
       viewModel.PlaybackActionRequested += HandlePlaybackAction;
-      viewModel.SeekRequested += HandleSeekRequst;
+      viewModel.SeekRequested += HandleSeekRequest; // メソッド名を変更
+      _mediaPlayer.EncounteredError += (s, e) => MessageBox.Show("再生エラーが発生しました。");
+      _mediaPlayer.TimeChanged += (s, e) => ViewModel?.OnTimerTick(TimeSpan.FromMilliseconds(e.Time));
 
-      // タイマーのセットアップ
+      // 再生タイマーは、もはや再生位置の通知には不要だが、UI更新の補助として残しても良い
       _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
-      _playbackTimer.Tick += PlaybackTimer_Tick;
-      PreviewPlayer.MediaOpened += PreviewPlayer_MediaOpened;
-      PreviewPlayer.MediaFailed += PreviewPlayer_MediaFailed;
-    }
-
-    // タイマーは、ViewModelに現在の再生時間を通知するだけ
-    private void PlaybackTimer_Tick(object? sender, EventArgs e)
-    {
-      ViewModel?.OnTimerTick(PreviewPlayer.Position);
     }
 
     private void HandlePlaybackAction(PlaybackAction action, ClipViewModel? clipToPlay)
@@ -74,129 +48,43 @@ namespace A23_MVVM
       switch (action)
       {
         case PlaybackAction.Pause:
-          PreviewPlayer.Pause();
-          _playbackTimer.Stop();
+          _mediaPlayer.Pause();
           break;
-
         case PlaybackAction.Stop:
-          PreviewPlayer.Stop();
-          _playbackTimer.Stop();
-          PreviewPlayer.Close();
+          _mediaPlayer.Stop();
           break;
       }
     }
-    private void HandleSeekRequst(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
+
+    private void HandleSeekRequest(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
     {
-      if (_currentClipInPlayer != clip || PreviewPlayer.Source == null)
+      _resumePlaybackAfterSeek = isPlaying;
+      _pendingSeekPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
+
+      // 既に同じクリップが再生中の場合は、シークのみ行う
+      if (_currentClipInPlayer == clip && _mediaPlayer.IsPlaying)
       {
-        _currentClipInPlayer = clip;
-        _resumePlaybackAfterSeek = isPlaying;
-        PreviewPlayer.Close();
-
-        var actualStartPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
-        _pendingSeekPosition = actualStartPosition;
-        
-        PreviewPlayer.Pause();
-
-        PreviewPlayer.Source = new Uri(clip.FilePath);
-        return; 
+        _mediaPlayer.Time = (long)_pendingSeekPosition.Value.TotalMilliseconds;
+        if (isPlaying) _mediaPlayer.Play();
+        return;
       }
-      else
-      {
-        if (positionInClip != TimeSpan.MinValue)
-        {
-          PreviewPlayer.Position = clip.TrimStart + positionInClip;
-        }
 
-        if (isPlaying)
-        {
-          PreviewPlayer.Play();
-          PreviewPlayer.Position = clip.TrimStart;
-          _playbackTimer.Start();
-        }
-      }
+      _currentClipInPlayer = clip;
+
+      // 新しいMediaオブジェクトを作成して再生を開始
+      var media = new Media(_libVLC, new Uri(clip.FilePath));
+      _mediaPlayer.Media = media;
+
+      // 再生開始位置を設定してから再生
+      _mediaPlayer.Time = (long)_pendingSeekPosition.Value.TotalMilliseconds;
+      if (isPlaying) _mediaPlayer.Play();
     }
 
-    private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e)
+    // アプリケーション終了時にリソースを解放
+    public void Dispose()
     {
-      if (_pendingSeekPosition.HasValue)
-      {
-        // ここは変更なし (既にTrimStartが加算された値が入っている)
-        PreviewPlayer.Position = _pendingSeekPosition.Value;
-        _pendingSeekPosition = null;
-      }
-      if (_resumePlaybackAfterSeek)
-      {
-        PreviewPlayer.Play();
-        _playbackTimer.Start();
-        _resumePlaybackAfterSeek = false;
-      }
+      _mediaPlayer.Dispose();
+      _libVLC.Dispose();
     }
-    private void PreviewPlayer_MediaFailed(object? sender, ExceptionRoutedEventArgs e)
-    {
-      // エラー内容をメッセージボックスで表示
-      MessageBox.Show(
-          "動画の読み込みに失敗しました。\n\n" +
-          // 修正点：e.ErrorException.GetType().Name を使用
-          "エラーの種類: " + e.ErrorException.GetType().Name + "\n" +
-          "エラーメッセージ: " + e.ErrorException.Message,
-          "再生エラー",
-          MessageBoxButton.OK,
-          MessageBoxImage.Error);
-
-      // 再生状態をリセット
-      _currentClipInPlayer = null;
-      if (DataContext is MainWindowViewModel viewModel)
-      {
-        viewModel.IsPlaying = false;
-      }
-    }
-
-    private void PreviewPlayer_MediaEnded(object sender, RoutedEventArgs e)
-    {
-      // 再生が終わったことをViewModelに報告するだけ
-      ViewModel?.GoToNextClip();
-    }
-    private void Timeline_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-      // クリックされたUI要素から、対応するClipViewModelを取得
-      var clickedClipVM = (e.OriginalSource as FrameworkElement)?.DataContext as ClipViewModel;
-
-      // ViewModelに「操作が開始されたこと」を、情報と共に伝える
-      ViewModel?.StartInteraction(clickedClipVM, e.GetPosition(sender as IInputElement));
-      (sender as UIElement)?.CaptureMouse();
-    }
-
-    private void Timeline_MouseMove(object sender, MouseEventArgs e)
-    {
-      // ViewModelに「マウスが動いたこと」を伝える
-      ViewModel?.UpdateInteraction(e.GetPosition(sender as IInputElement));
-    }
-
-    private void Timeline_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-      // ViewModelに「操作が終了したこと」を伝える
-      ViewModel?.EndInteraction();
-      (sender as UIElement)?.ReleaseMouseCapture();
-    }
-
-    private void TimeLine_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-      // タイムラインのどこかをクリックしたときに、選択中クリップの選択を解除する
-      if (_selectedClipUI != null)
-      {
-        _selectedClipUI.BorderBrush = Brushes.Black;
-        _selectedClipUI.BorderThickness = new Thickness(1);
-        _selectedClipUI = null;
-      }
-    }
-
-    private void TimelineBackground_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-      double clickedX = e.GetPosition(sender as IInputElement).X;
-      TimeSpan clickedTime = TimeSpan.FromSeconds(clickedX / Config.PixelsPerSecond);
-      ViewModel.SeekToTime(clickedTime);
-    }
-
-  }//class MainWindow
-} // namespace A23_MVVM
+  }
+}
