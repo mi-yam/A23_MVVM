@@ -45,6 +45,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private Point _startMousePosition;
     private double _dragStartLeft;
     private bool _isInteracting = false;
+    public TimeSpan CurrentPlayerPosition { get; set; }
 
     // --- コンストラクタ ---
     public MainWindowViewModel()
@@ -184,6 +185,8 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
     public void OnTimerTick(TimeSpan currentVideoPosition)
     {
+      currentVideoPosition = CurrentPlayerPosition;
+
       if (!IsPlaying || !_sortedClips.Any() || _currentClipIndex >= _sortedClips.Count) return;
 
       var currentClip = _sortedClips[_currentClipIndex];
