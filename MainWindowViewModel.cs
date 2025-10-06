@@ -192,9 +192,12 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         GoToNextClip();
         return; // 次のクリップの処理に移るので、ここで処理を抜ける
       }
+      // 再生位置からクリップの開始時間を引くことで、クリップ内での再生経過時間を算出
+      var progressWithinClip = currentVideoPosition - currentClip.TrimStart;
 
-      double currentClipProgress = currentVideoPosition.TotalSeconds * Config.PixelsPerSecond;
-      PlayheadPosition = currentClip.TimelinePosition + currentClipProgress;
+      // タイムラインの赤い線を正しい位置に表示するための計算
+      PlayheadPosition = currentClip.TimelinePosition + progressWithinClip.TotalSeconds * Config.PixelsPerSecond;
+
     }
 
 
@@ -205,7 +208,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
       {
         var nextClip = _sortedClips[_currentClipIndex];
 
-        SeekRequested?.Invoke(nextClip, nextClip.TrimStart, true);
+        SeekRequested?.Invoke(nextClip, TimeSpan.MinValue, true);
 
       }
       else
@@ -242,7 +245,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
         {
           // Viewに対して再生を要求する。
           // 現在のクリップを再生するという意図だけを伝えること。
-          SeekRequested?.Invoke(clipToPlay, TimeSpan.Zero, true);
+          SeekRequested?.Invoke(clipToPlay, TimeSpan.MinValue, true);
         }
 
         PlayPauseButtonContent = "一時停止";
@@ -310,6 +313,7 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
 
       // 2. 元クリップの元の長さを、変更前に保存しておく
       var originalDuration = targetClip.Duration;
+      targetClip.OriginalDuration = originalDuration;
 
       // 3. 新しいクリップ（後半部分）の「設計図」を作成する
       var newClipModel = new VideoClip

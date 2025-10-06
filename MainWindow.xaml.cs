@@ -99,6 +99,7 @@ namespace A23_MVVM
         PreviewPlayer.Pause();
 
         PreviewPlayer.Source = new Uri(clip.FilePath);
+        return; 
       }
       else
       {
@@ -110,6 +111,7 @@ namespace A23_MVVM
         if (isPlaying)
         {
           PreviewPlayer.Play();
+          PreviewPlayer.Position = clip.TrimStart;
           _playbackTimer.Start();
         }
       }
