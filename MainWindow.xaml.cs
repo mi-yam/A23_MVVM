@@ -6,7 +6,8 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using static A23_MVVM.MainWindowViewModel;
+using A23_MVVM.ViewModels;
+using static A23_MVVM.ViewModels.MainWindowViewModel; // ★★★ .ViewModels を追加 ★★★
 
 namespace A23_MVVM
 {
@@ -68,7 +69,7 @@ namespace A23_MVVM
             var newPosition = currentClip.TimelinePosition + progressWithinClip.TotalSeconds * Config.PixelsPerSecond;
 
             // XAMLで名前を付けたRectangleのRenderTransformを直接更新する
-            (Playhead.RenderTransform as TranslateTransform).X = newPosition;
+            //(Playhead.RenderTransform as TranslateTransform).X = newPosition;
             viewModel.PlayheadPosition = newPosition;
           }
         }

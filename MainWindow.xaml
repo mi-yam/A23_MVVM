@@ -25,8 +25,13 @@
     </Grid.ColumnDefinitions>
 
     <DockPanel Grid.Row="0" Grid.Column="0" Margin="5">
-      <Button DockPanel.Dock="Top" Content="動画ファイルを開く" Margin="5" Padding="5" 
-              Command="{Binding OpenFileCommand}"/>
+      <StackPanel>
+        <vlc:VideoView MediaPlayer="{Binding MediaPlayer}" />
+
+        <Button Content="ファイルを開く" Command="{Binding OpenFileCommand}" CommandParameter="{Binding FilePath}" />
+        <Button Content="▶ 再生" Command="{Binding PlayCommand}" />
+        <Button Content="⏸ 一時停止" Command="{Binding PauseCommand}" />
+      </StackPanel>
     </DockPanel>
 
     <Grid Grid.Row="0" Grid.Column="2">
@@ -45,9 +50,9 @@
                       MouseMove="Timeline_MouseMove"
                       MouseLeftButtonUp="Timeline_MouseLeftButtonUp" Grid.ColumnSpan="2">
         </ItemsControl>
-        <Rectangle x:Name="Playhead" Fill="#E81123" Width="2" HorizontalAlignment="Left">
+        <Rectangle Fill="#E81123" Width="2" HorizontalAlignment="Left">
           <Rectangle.RenderTransform>
-            <TranslateTransform X="0" />
+            <TranslateTransform X="{Binding PlayheadPosition}" />
           </Rectangle.RenderTransform>
         </Rectangle>
       </Grid>
