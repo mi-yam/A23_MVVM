@@ -59,8 +59,8 @@ namespace A23_MVVM
         viewModel.OnTimerTick(currentTime);
 
         // 2. UIの更新は、Viewが直接行う (データバインディングを経由しない)
-        if (viewModel.IsPlaying && viewModel.Clips.Any())
-        {
+        if (viewModel.IsPlaying && viewModel.SortedClips.Any()) 
+        {      
           var currentClip = viewModel.SortedClips.ElementAtOrDefault(viewModel.CurrentClipIndex);
           if (currentClip != null)
           {
