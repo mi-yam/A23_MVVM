@@ -59,78 +59,76 @@ namespace A23_MVVM
       // タイマーのセットアップ
       _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
       _playbackTimer.Tick += PlaybackTimer_Tick;
-      PreviewPlayer.MediaOpened += PreviewPlayer_MediaOpened;
-      PreviewPlayer.MediaFailed += PreviewPlayer_MediaFailed;
     }
 
     // タイマーは、ViewModelに現在の再生時間を通知するだけ
     private void PlaybackTimer_Tick(object? sender, EventArgs e)
     {
-      ViewModel?.OnTimerTick(PreviewPlayer.Position);
+      //ViewModel?.OnTimerTick(PreviewPlayer.Position);
     }
 
     private void HandlePlaybackAction(PlaybackAction action, ClipViewModel? clipToPlay)
     {
-      switch (action)
-      {
-        case PlaybackAction.Pause:
-          PreviewPlayer.Pause();
-          _playbackTimer.Stop();
-          break;
+    //  switch (action)
+    //  {
+    //    case PlaybackAction.Pause:
+    //      PreviewPlayer.Pause();
+    //      _playbackTimer.Stop();
+    //      break;
 
-        case PlaybackAction.Stop:
-          PreviewPlayer.Stop();
-          _playbackTimer.Stop();
-          PreviewPlayer.Close();
-          break;
-      }
+    //    case PlaybackAction.Stop:
+    //      PreviewPlayer.Stop();
+    //      _playbackTimer.Stop();
+    //      PreviewPlayer.Close();
+    //      break;
+    //  }
     }
     private void HandleSeekRequst(ClipViewModel clip, TimeSpan positionInClip, bool isPlaying)
     {
-      if (_currentClipInPlayer != clip || PreviewPlayer.Source == null)
-      {
-        _currentClipInPlayer = clip;
-        _resumePlaybackAfterSeek = isPlaying;
-        PreviewPlayer.Close();
+      //if (_currentClipInPlayer != clip || PreviewPlayer.Source == null)
+      //{
+      //  _currentClipInPlayer = clip;
+      //  _resumePlaybackAfterSeek = isPlaying;
+      //  PreviewPlayer.Close();
 
-        var actualStartPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
-        _pendingSeekPosition = actualStartPosition;
+      //  var actualStartPosition = clip.TrimStart + ((positionInClip == TimeSpan.MinValue) ? TimeSpan.Zero : positionInClip);
+      //  _pendingSeekPosition = actualStartPosition;
         
-        PreviewPlayer.Pause();
+      //  PreviewPlayer.Pause();
 
-        PreviewPlayer.Source = new Uri(clip.FilePath);
-        return; 
-      }
-      else
-      {
-        if (positionInClip != TimeSpan.MinValue)
-        {
-          PreviewPlayer.Position = clip.TrimStart + positionInClip;
-        }
+      //  PreviewPlayer.Source = new Uri(clip.FilePath);
+      //  return; 
+      //}
+      //else
+      //{
+      //  if (positionInClip != TimeSpan.MinValue)
+      //  {
+      //    PreviewPlayer.Position = clip.TrimStart + positionInClip;
+      //  }
 
-        if (isPlaying)
-        {
-          PreviewPlayer.Play();
-          PreviewPlayer.Position = clip.TrimStart;
-          _playbackTimer.Start();
-        }
-      }
+      //  if (isPlaying)
+      //  {
+      //    PreviewPlayer.Play();
+      //    PreviewPlayer.Position = clip.TrimStart;
+      //    _playbackTimer.Start();
+      //  }
+      //}
     }
 
     private void PreviewPlayer_MediaOpened(object sender, System.Windows.RoutedEventArgs e)
     {
-      if (_pendingSeekPosition.HasValue)
-      {
-        // ここは変更なし (既にTrimStartが加算された値が入っている)
-        PreviewPlayer.Position = _pendingSeekPosition.Value;
-        _pendingSeekPosition = null;
-      }
-      if (_resumePlaybackAfterSeek)
-      {
-        PreviewPlayer.Play();
-        _playbackTimer.Start();
-        _resumePlaybackAfterSeek = false;
-      }
+      //if (_pendingSeekPosition.HasValue)
+      //{
+      //  // ここは変更なし (既にTrimStartが加算された値が入っている)
+      //  PreviewPlayer.Position = _pendingSeekPosition.Value;
+      //  _pendingSeekPosition = null;
+      //}
+      //if (_resumePlaybackAfterSeek)
+      //{
+      //  PreviewPlayer.Play();
+      //  _playbackTimer.Start();
+      //  _resumePlaybackAfterSeek = false;
+      //}
     }
     private void PreviewPlayer_MediaFailed(object? sender, ExceptionRoutedEventArgs e)
     {

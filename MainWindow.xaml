@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:local="clr-namespace:A23_MVVM"
         mc:Ignorable="d"
         Title="My Video Editor" Height="600" Width="1000"
@@ -30,8 +31,8 @@
     </DockPanel>
 
     <Grid Grid.Row="0" Grid.Column="2">
-      <MediaElement x:Name="PreviewPlayer" LoadedBehavior="Manual" Margin="5" MediaEnded="PreviewPlayer_MediaEnded" />
-      
+      <vlc:VideoView x:Name="MyVideoView" MediaPlayer="{Binding MediaPlayer}"/>
+
       <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,50">
         <Button Content="✂ ここで分割" Command="{Binding SplitClipCommand}" 
                 Padding="10,5" FontSize="14" FontWeight="Bold"/>

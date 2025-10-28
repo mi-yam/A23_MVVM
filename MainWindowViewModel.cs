@@ -2,15 +2,19 @@
 using A23_MVVM;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LibVLCSharp.Shared;
+using LibVLCSharp.WPF;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO; // System.IOを追加
 using System.Windows;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
+
 using static A23_MVVM.MainWindow;
 
 namespace A23_MVVM // あなたのプロジェクト名に合わせてください
@@ -45,13 +49,33 @@ namespace A23_MVVM // あなたのプロジェクト名に合わせてくださ�
     private Point _startMousePosition;
     private double _dragStartLeft;
     private bool _isInteracting = false;
+    public MediaPlayer MediaPlayer { get; }
 
+    private LibVLC _libVLC;
     // --- コンストラクタ ---
     public MainWindowViewModel()
     {
       // アプリケーション起動時に一度だけ実行される
       // FFmpegの実行ファイルがなければダウンロードする
-      InitializeFFmpeg();
+      // InitializeFFmpeg(); // この行は必要に応じてコメントアウトまたは実装
+
+      // VLCコアを初期化
+      // Core.Initialize()はViewのUIスレッドで呼ばれるのが望ましい場合があるため、
+      // App.xaml.csなどで一度だけ呼び出すのがより安全です。
+      // ここでは簡潔さのためにViewModelに残します。
+      Core.Initialize();
+
+      // LibVLCとMediaPlayerのインスタンスを作成
+      _libVLC = new LibVLC();
+      MediaPlayer = new MediaPlayer(_libVLC);
+
+      // --- Window_Loadedからロジックをこちらに移動 ---
+      // 再生したい動画ファイルのパスやURLを指定
+      var media = new Media(_libVLC, new Uri("http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"));
+
+      // メディアをプレイヤーにセットして再生開始
+      MediaPlayer.Media = media;
+      MediaPlayer.Play();
     }
 
     private async void InitializeFFmpeg()
