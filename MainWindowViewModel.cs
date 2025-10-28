@@ -82,8 +82,8 @@ namespace A23_MVVM.ViewModels
 
       // --- MediaPlayerイベントの購読 ---
       SubscribeToMediaPlayerEvents();
-       #region Events
-
+      #region Events
+    }
       /// <summary>
       /// Viewに対して再生アクションを要求するためのイベントの型を定義します。
       /// </summary>
@@ -109,7 +109,6 @@ namespace A23_MVVM.ViewModels
     private void RequestStop()
     {
       PlaybackActionRequested?.Invoke(PlaybackAction.Stop, null);
-    }
     }
 
     #endregion

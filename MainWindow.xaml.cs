@@ -1,13 +1,12 @@
 ﻿using A23_MVVM;
 using LibVLCSharp.Shared;
 using System;
-using System.Threading; // ★★★ Interlockedクラスのために追加 ★★★
+using System.Linq; // Add this for .Any() and .ElementAtOrDefault()
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
+using System.Windows.Media; // TranslateTransformを使う場合は必要
 using System.Windows.Threading;
-using A23_MVVM.ViewModels;
-using static A23_MVVM.ViewModels.MainWindowViewModel; // ★★★ .ViewModels を追加 ★★★
 
 namespace A23_MVVM
 {
@@ -37,8 +36,8 @@ namespace A23_MVVM
       _mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
       PreviewPlayer.MediaPlayer = _mediaPlayer;
 
-      viewModel.PlaybackActionRequested += HandlePlaybackAction;
-      viewModel.SeekRequested += HandleSeekRequest;
+      //viewModel.PlaybackActionRequested += HandlePlaybackAction;
+      //viewModel.SeekRequested += HandleSeekRequest;
       _mediaPlayer.EncounteredError += (s, e) => MessageBox.Show("再生エラーが発生しました。");
       _mediaPlayer.TimeChanged += (s, e) => Interlocked.Exchange(ref _latestPlayerPositionTicks, e.Time * TimeSpan.TicksPerMillisecond);
 
