@@ -4,63 +4,29 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:A23_MVVM"
-        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         mc:Ignorable="d"
-        Title="My Video Editor" Height="600" Width="1000">
+        Title="Step 1: Code-Behind Example" Height="300" Width="400">
 
-  <Window.Resources>
-    <local:LeftMarginConverter x:Key="LeftMarginConverter"/>
-  </Window.Resources>
-
-  <Grid>
+  <Grid Margin="10">
     <Grid.RowDefinitions>
-      <RowDefinition Height ="*"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="200" />
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="300"/>
-      <ColumnDefinition Width="Auto"/>
-      <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
 
-    <DockPanel Grid.Row="0" Grid.Column="0" Margin="5">
-      <StackPanel>
-        <vlc:VideoView MediaPlayer="{Binding MediaPlayer}" />
 
-        <Button Content="ファイルを開く" Command="{Binding OpenFileCommand}" CommandParameter="{Binding FilePath}" />
-        <Button Content="▶ 再生" Command="{Binding PlayCommand}" />
-        <Button Content="⏸ 一時停止" Command="{Binding PauseCommand}" />
-      </StackPanel>
-    </DockPanel>
+  <TextBlock x:Name="InfoTextBlock"
+             Grid.Row="0"
+             Text="Hello,WPF!"
+             FontSize="24"
+             HorizontalAlignment="Center"
+             Margin="10"/>
 
-    <Grid Grid.Row="0" Grid.Column="2">
-      <!-- MainWindow.xaml 側 -->
-      <vlc:VideoView x:Name="PreviewPlayer" 
-               MediaPlayer="{Binding MediaPlayer}" />
-
-      <Button Content="{Binding PlayPauseButtonContent}" Command="{Binding PlayPauseCommand}"
-              Width="100" Height="30"
-              HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="10"/>
-    </Grid>
-
-    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Background="#FF3E3E42" Margin="5">
-      <Grid>
-        <Rectangle Fill="Transparent" MouseLeftButtonDown="TimelineBackground_MouseLeftButtonDown" />
-        <ItemsControl ItemsSource="{Binding Clips}"
-                      MouseLeftButtonDown="Timeline_MouseLeftButtonDown"
-                      MouseMove="Timeline_MouseMove"
-                      MouseLeftButtonUp="Timeline_MouseLeftButtonUp" Grid.ColumnSpan="2">
-        </ItemsControl>
-        <Rectangle Fill="#E81123" Width="2" HorizontalAlignment="Left">
-          <Rectangle.RenderTransform>
-            <TranslateTransform X="{Binding PlayheadPosition}" />
-          </Rectangle.RenderTransform>
-        </Rectangle>
-      </Grid>
-    </Border>
-
-    <GridSplitter Grid.Row="0" Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="LightGray"/>
-    <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray"/>
+  <Button x:Name="MyButton"
+          Grid.Row="1"
+          Content="Click Me"
+          Click="MyButton_Click"
+          HorizontalAlignment="Center"
+          Padding="20,10"/>
   </Grid>
 </Window>
