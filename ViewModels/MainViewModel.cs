@@ -1,77 +1,132 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.Collections.ObjectModel; // ObservableCollection (リスト) のため
-using A23_MVVM.Models;               // 1-1 で作成した Scene クラスのため
-using LibVLCSharp.Shared;            // LibVLCSharp のため
+using System.Collections.ObjectModel; // ObservableCollection
+using A23_MVVM.Models;               // Scene
+using LibVLCSharp.Shared;            // LibVLC
 using System;
-using System.Linq;                   // FirstOrDefault() のため
-using System.IO;                     // File.Exists() のため
+using System.Linq;                   // FirstOrDefault
+using System.IO;                     // File.Exists
+using System.Diagnostics;            // Debug.WriteLine (デバッグ用)
+using System.Threading.Tasks;        // Task.Delay (タイマー用)
+using System.Diagnostics; // ★ Debug.WriteLine のため追加
 
-// フォルダ名 "ViewModels" に合わせて、名前空間が "A23_MVVM.ViewModels" になります
+// プロジェクト名.ViewModels (例: A23_MVVM.ViewModels)
 namespace A23_MVVM.ViewModels
 {
   public partial class MainViewModel : ObservableObject
   {
-    // --- LibVLCSharpのコア ---
+    // --- Fields ---
     private LibVLC _libVLC;
 
     [ObservableProperty]
-    private MediaPlayer _mediaPlayer; // UIのVideoViewにバインドされます
+    private MediaPlayer _mediaPlayer;
 
-    /// <summary>
-    /// ドキュメント（シーンのリスト）
-    /// </summary>
     [ObservableProperty]
     private ObservableCollection<Scene> _scenes;
 
-    /// <summary>
-    /// 現在ドキュメントで選択されている行（シーン）
-    /// </summary>
     [ObservableProperty]
-    // [NotifyPropertyChangedFor(...)] を削除しました (エラーの原因だったため)
     private Scene? _selectedScene;
 
+    /// <summary>
+    /// UIからの選択（クリック）と、再生位置の自動追従が
+    /// 競合するのを防ぐためのフラグ
+    /// </summary>
+    private bool _isUpdatingSelection = false;
+
+    // --- Constructor ---
     public MainViewModel()
     {
-      // 1. LibVLCの初期化 (重要)
-      Core.Initialize();
       _libVLC = new LibVLC();
       _mediaPlayer = new MediaPlayer(_libVLC);
 
       // 2. ダミーデータの読み込み
       LoadDummyData();
 
-      // 3. PropertyChanged イベントハンドラは削除しました。
-      //    (後述の partial void OnSelectedSceneChanged にロジックを移動したため)
+      // 3. MediaPlayer の TimeChanged イベントを購読（監視）
+      //    (ステップ4の追加機能)
+      _mediaPlayer.TimeChanged += OnMediaPlayerTimeChanged;
+    }
+
+    // --- Event Handlers & Callbacks ---
+
+    /// <summary>
+    /// (ステップ4) MediaPlayerの再生時間が変わるたびに呼び出される
+    /// </summary>
+    private void OnMediaPlayerTimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
+    {
+      // UIスレッドで実行するおまじない
+      App.Current.Dispatcher.Invoke(() =>
+      {
+        // UIクリック操作中は自動追従を停止
+        if (_isUpdatingSelection)
+        {
+          return;
+        }
+
+        long currentTime = e.Time; // 現在の再生時間 (ミリ秒)
+
+        // 1. 再生がシーンの「終了時刻」を超えたら、一時停止する
+        if (SelectedScene != null && currentTime > (long)SelectedScene.EndTime.TotalMilliseconds)
+        {
+          if (MediaPlayer.IsPlaying)
+          {
+            MediaPlayer.Pause();
+          }
+        }
+
+        // 2. 現在の再生時間に一致するシーンを探す (Linq)
+        var currentScene = Scenes.FirstOrDefault(scene =>
+            !string.IsNullOrEmpty(scene.SourceVideoPath) && // 映像があり
+            currentTime >= (long)scene.StartTime.TotalMilliseconds && // 開始 <= 時間
+            currentTime < (long)scene.EndTime.TotalMilliseconds   // 時間 < 終了
+        );
+
+        // もし該当するシーンがあり、それが現在の選択行と違うなら
+        if (currentScene != null && currentScene != SelectedScene)
+        {
+          // SelectedScene を更新する (UIのハイライトが自動で追従)
+          SelectedScene = currentScene;
+        }
+      });
     }
 
     /// <summary>
-    /// 【★修正点 1★】
-    /// [ObservableProperty] によって SelectedScene プロパティが
-    /// 変更された「後」に自動的に呼び出されるメソッドを追加しました。
+    /// (ステップ4) SelectedScene プロパティが変更された「後」に呼び出される
+    /// (UIクリック時、または上記の自動追従時に発生)
     /// </summary>
-    /// <param name="value">新しい値 (今回は使いませんが必須)</param>
     partial void OnSelectedSceneChanged(Scene? value)
     {
-      // SelectedScene が変わったので、
-      // PlaySelectedSceneCommand の CanExecute (実行可能か) を
-      // 再評価するよう通知します。
-      PlaySelectedSceneCommand.NotifyCanExecuteChanged();
+      // 自動追従 (OnMediaPlayerTimeChanged) によって value が変更された場合、
+      // _isUpdatingSelection は false のため、この中には入らない。
+      // UIクリックによって value が変更された場合のみ、中に入る。
+      if (value != null && !_isUpdatingSelection)
+      {
+        // UIクリック操作中フラグを立てる
+        _isUpdatingSelection = true;
 
-      // コンセプト：「カーソル ＝ 再生位置」の同期
-      // 選択されたシーンに割り当てられた動画クリップを再生
-      PlaySelectedSceneCommand.Execute(null);
+        // Play コマンドの実行可否を更新
+        PlaySelectedSceneCommand.NotifyCanExecuteChanged();
+
+        // 選択シーンを再生
+        PlaySelectedSceneCommand.Execute(null);
+
+        // 0.5秒後（再生が飛んだ後）にフラグを戻す
+        _ = Task.Delay(500).ContinueWith(_ =>
+        {
+          // UIスレッドでフラグを戻す
+          App.Current.Dispatcher.Invoke(() => _isUpdatingSelection = false);
+        });
+      }
     }
 
+    // --- Methods ---
+
     /// <summary>
-    /// （ダミー）台本データをロードします
+    /// (ステップ3) （ダミー）台本データをロードします
+    /// (これが不足していたメソッドです)
     /// </summary>
     private void LoadDummyData()
     {
-      // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-      // TODO: ここをご自身のPCにある適当な動画ファイル(mp4など)の
-      //       フルパスに書き換えてください。
-      // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
       string dummyVideoPath = @"C:\Users\mikis\Videos\サンプル\sample-2.mp4";
 
       Scenes = new ObservableCollection<Scene>
@@ -109,11 +164,8 @@ namespace A23_MVVM.ViewModels
       SelectedScene = Scenes.FirstOrDefault(); // リストの最初の要素
     }
 
-    // OnSelectedSceneChanged() メソッドは partial void に統合されたため削除
-
     /// <summary>
-    /// [RelayCommand]の CanExecute にバインドされます。
-    /// SelectedSceneに映像が割り当てられているか(かつファイルが存在するか)を返します。
+    /// (ステップ3) [RelayCommand]の CanExecute にバインドされます。
     /// </summary>
     private bool CanPlaySelectedScene()
     {
@@ -123,23 +175,22 @@ namespace A23_MVVM.ViewModels
              File.Exists(SelectedScene.SourceVideoPath);
     }
 
+    // --- Commands ---
+
     /// <summary>
     /// 選択中のシーンをプレビューで再生するコマンド
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanPlaySelectedScene))]
     private void PlaySelectedScene()
     {
-      // CanExecuteがfalseの場合は、このコマンドは実行されません
       if (SelectedScene == null || string.IsNullOrEmpty(SelectedScene.SourceVideoPath)) return;
 
-      // 【★修正点 2★】
-      // new Uri(...) に .Mrl は無いため、
-      // .AbsoluteUri (string) を使って比較するように修正しました。
       var newMediaUri = new Uri(SelectedScene.SourceVideoPath);
 
+      // メディアが設定されていないか、違う動画ファイルが設定されていたら、
+      // 新しいMediaオブジェクトを作成して設定し直す
       if (MediaPlayer.Media == null || MediaPlayer.Media.Mrl != newMediaUri.AbsoluteUri)
       {
-        // コンストラクタに渡すのは Uri オブジェクトのまま
         var media = new Media(_libVLC, newMediaUri);
         MediaPlayer.Media = media;
       }
@@ -147,11 +198,38 @@ namespace A23_MVVM.ViewModels
       // 再生速度を設定
       MediaPlayer.SetRate((float)SelectedScene.PlaybackSpeed);
 
+      // (ステップ4) 再生位置を飛ばす（TimeSet）直前に
+      // イベントハンドラを一時的に解除し、競合を防ぐ
+      MediaPlayer.TimeChanged -= OnMediaPlayerTimeChanged;
+
       // 再生開始位置を設定 (ミリ秒)
       MediaPlayer.Time = (long)SelectedScene.StartTime.TotalMilliseconds;
 
       // 再生
       MediaPlayer.Play();
+
+      // (ステップ4) 再生開始後に、再度イベントハンドラを登録
+      MediaPlayer.TimeChanged += OnMediaPlayerTimeChanged;
     }
+
+    [RelayCommand]
+    private void ApplySpeedStyle()
+    {
+      // Visual Studio の「出力」ウィンドウにメッセージが表示されます
+      Debug.WriteLine("リボン: [▶▶早送り] スタイルが押されました");
+    }
+
+    [RelayCommand]
+    private void ApplySafetyStyle()
+    {
+      Debug.WriteLine("リボン: [！安全注意] スタイルが押されました");
+    }
+
+    [RelayCommand]
+    private void ApplyHeading1Style()
+    {
+      Debug.WriteLine("リボン: [見出し1] スタイルが押されました");
+    }
+
   }
 }

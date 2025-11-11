@@ -1,81 +1,93 @@
-﻿<Window x:Class="A23_MVVM.MainWindow"
+﻿<ribbon:RibbonWindow x:Class="A23_MVVM.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:A23_MVVM"    
+        xmlns:local="clr-namespace:A23_MVVM"
         xmlns:vm="clr-namespace:A23_MVVM.ViewModels"
-        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"    
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        xmlns:ribbon="clr-namespace:System.Windows.Controls.Ribbon;assembly=System.Windows.Controls.Ribbon"
         mc:Ignorable="d"
-        Title="Text-First Video Editor (Step 3)" Height="600" Width="1000">
+        Title="Text-First Video Editor (Step 4: Ribbon)" Height="600" Width="1000">
 
-
-  <Window.DataContext>
+  <ribbon:RibbonWindow.DataContext>
     <vm:MainViewModel/>
-  </Window.DataContext>
+  </ribbon:RibbonWindow.DataContext>
 
-  <!-- 3ペインレイアウトのGrid -->
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="0.4*" MinWidth="300"/>
-      <!-- 左ペイン (40%) -->
-      <ColumnDefinition Width="5"/>
-      <!-- 分割線 -->
-      <ColumnDefinition Width="0.6*" MinWidth="400"/>
-      <!-- 右ペイン (60%) -->
-    </Grid.ColumnDefinitions>
+  <DockPanel>
 
-    <!-- === 左ペイン (プレビューと設定) === -->
-    <Grid Grid.Column="0">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="0.5*"/>
-        <!-- 左上: プレビュー -->
-        <RowDefinition Height="5"/>
-        <!-- 分割線 -->
-        <RowDefinition Height="0.5*"/>
-        <!-- 左下: 設定エリア -->
-      </Grid.RowDefinitions>
+    <!-- リボン -->
+    <ribbon:Ribbon DockPanel.Dock="Top">
+      <ribbon:RibbonTab Header="ホーム">
+        <ribbon:RibbonGroup Header="スタイル挿入">
+          <ribbon:RibbonButton Label="▶▶早送り"
+                                    Command="{Binding ApplySpeedStyleCommand}"
+                                    LargeImageSource="/Images/arrow2.png" />
+          <ribbon:RibbonButton Label="！安全注意" 
+                                    Command="{Binding ApplySafetyStyleCommand}"
+                                    LargeImageSource="/Images/Carefull.png" />
+        </ribbon:RibbonGroup>
+        <ribbon:RibbonGroup Header="フォーマット">
+          <ribbon:RibbonButton Label="見出し1" 
+                                    Command="{Binding ApplyHeading1StyleCommand}"/>
+        </ribbon:RibbonGroup>
 
-      <!-- 左上: プレビュー画面 (VideoView) -->
-      <vlc:VideoView Grid.Row="0"
-                           MediaPlayer="{Binding MediaPlayer}"
-                           Background="Black"/>
+      </ribbon:RibbonTab>
+    </ribbon:Ribbon>
 
-      <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" Height="5" Background="LightGray"/>
+    <!-- 3ペインGrid (残りの領域すべてを使います) -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="0.4*" MinWidth="300"/>
+        <ColumnDefinition Width="5"/>
+        <ColumnDefinition Width="0.6*" MinWidth="400"/>
+      </Grid.ColumnDefinitions>
 
-      <!-- 左下: 設定・作業エリア (今はダミー) -->
-      <Border Grid.Row="2" Background="#ECECEC" Margin="5">
-        <TextBlock Text="（ここに「ペラペラ漫画UI」や「トリミングUI」が入ります）" 
-                           HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
-      </Border>
+      <!-- 左ペイン -->
+      <Grid Grid.Column="0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="0.5*"/>
+          <RowDefinition Height="5"/>
+          <RowDefinition Height="0.5*"/>
+        </Grid.RowDefinitions>
+
+        <vlc:VideoView Grid.Row="0"
+                               MediaPlayer="{Binding MediaPlayer}"
+                               Background="Black"/>
+
+        <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" Height="5" Background="LightGray"/>
+
+        <Border Grid.Row="2" Background="#ECECEC" Margin="5">
+          <TextBlock Text="（ここに「ペラペラ漫画UI」や「トリミングUI」が入ります）" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
+        </Border>
+      </Grid>
+
+      <GridSplitter Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="LightGray"/>
+
+      <!-- 右ペイン -->
+      <Grid Grid.Column="2" Margin="5">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="ドキュメントエリア (台本)" FontSize="16" FontWeight="Bold" Margin="5"/>
+
+        <ListView Grid.Row="1"
+                          ItemsSource="{Binding Scenes}"
+                          SelectedItem="{Binding SelectedScene}"
+                          BorderBrush="Gray" BorderThickness="1" SelectionChanged="ListView_SelectionChanged">
+          <ListView.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding ScriptText}" 
+                                       Padding="5" 
+                                       FontSize="14"/>
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
+      </Grid>
     </Grid>
 
-    <GridSplitter Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="LightGray"/>
-
-    <!-- === 右ペイン (ドキュメントエリア) === -->
-    <Grid Grid.Column="2" Margin="5">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-      </Grid.RowDefinitions>
-
-      <TextBlock Text="ドキュメントエリア (台本)" FontSize="16" FontWeight="Bold" Margin="5"/>
-
-      <!-- ドキュメントエリア (ListView) -->
-      <ListView Grid.Row="1"
-                      ItemsSource="{Binding Scenes}"
-                      SelectedItem="{Binding SelectedScene}"
-                      BorderBrush="Gray" BorderThickness="1">
-        <ListView.ItemTemplate>
-          <!-- リストの各行がどのように見えるかを定義 -->
-          <DataTemplate>
-            <!-- Sceneオブジェクトの "ScriptText" プロパティを表示 -->
-            <TextBlock Text="{Binding ScriptText}" 
-                                   Padding="5" 
-                                   FontSize="14"/>
-          </DataTemplate>
-        </ListView.ItemTemplate>
-      </ListView>
-    </Grid>
-  </Grid>
-</Window>
+  </DockPanel>
+</ribbon:RibbonWindow>
