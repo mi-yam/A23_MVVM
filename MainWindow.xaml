@@ -3,30 +3,79 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:A23_MVVM"
+        xmlns:local="clr-namespace:A23_MVVM"    
+        xmlns:vm="clr-namespace:A23_MVVM.ViewModels"
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"    
         mc:Ignorable="d"
-        Title="Step 1: Code-Behind Example" Height="300" Width="400">
-
-  <Grid Margin="10">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-    </Grid.RowDefinitions>
+        Title="Text-First Video Editor (Step 3)" Height="600" Width="1000">
 
 
-  <TextBlock x:Name="InfoTextBlock"
-             Grid.Row="0"
-             Text="Hello,WPF!"
-             FontSize="24"
-             HorizontalAlignment="Center"
-             Margin="10"/>
+  <Window.DataContext>
+    <vm:MainViewModel/>
+  </Window.DataContext>
 
-  <Button x:Name="MyButton"
-          Grid.Row="1"
-          Content="Click Me"
-          Click="MyButton_Click"
-          HorizontalAlignment="Center"
-          Padding="20,10"/>
+  <!-- 3ペインレイアウトのGrid -->
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="0.4*" MinWidth="300"/>
+      <!-- 左ペイン (40%) -->
+      <ColumnDefinition Width="5"/>
+      <!-- 分割線 -->
+      <ColumnDefinition Width="0.6*" MinWidth="400"/>
+      <!-- 右ペイン (60%) -->
+    </Grid.ColumnDefinitions>
+
+    <!-- === 左ペイン (プレビューと設定) === -->
+    <Grid Grid.Column="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="0.5*"/>
+        <!-- 左上: プレビュー -->
+        <RowDefinition Height="5"/>
+        <!-- 分割線 -->
+        <RowDefinition Height="0.5*"/>
+        <!-- 左下: 設定エリア -->
+      </Grid.RowDefinitions>
+
+      <!-- 左上: プレビュー画面 (VideoView) -->
+      <vlc:VideoView Grid.Row="0"
+                           MediaPlayer="{Binding MediaPlayer}"
+                           Background="Black"/>
+
+      <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" Height="5" Background="LightGray"/>
+
+      <!-- 左下: 設定・作業エリア (今はダミー) -->
+      <Border Grid.Row="2" Background="#ECECEC" Margin="5">
+        <TextBlock Text="（ここに「ペラペラ漫画UI」や「トリミングUI」が入ります）" 
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
+      </Border>
+    </Grid>
+
+    <GridSplitter Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="LightGray"/>
+
+    <!-- === 右ペイン (ドキュメントエリア) === -->
+    <Grid Grid.Column="2" Margin="5">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <TextBlock Text="ドキュメントエリア (台本)" FontSize="16" FontWeight="Bold" Margin="5"/>
+
+      <!-- ドキュメントエリア (ListView) -->
+      <ListView Grid.Row="1"
+                      ItemsSource="{Binding Scenes}"
+                      SelectedItem="{Binding SelectedScene}"
+                      BorderBrush="Gray" BorderThickness="1">
+        <ListView.ItemTemplate>
+          <!-- リストの各行がどのように見えるかを定義 -->
+          <DataTemplate>
+            <!-- Sceneオブジェクトの "ScriptText" プロパティを表示 -->
+            <TextBlock Text="{Binding ScriptText}" 
+                                   Padding="5" 
+                                   FontSize="14"/>
+          </DataTemplate>
+        </ListView.ItemTemplate>
+      </ListView>
+    </Grid>
   </Grid>
 </Window>
