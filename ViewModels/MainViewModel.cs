@@ -78,7 +78,7 @@ namespace A23_MVVM.ViewModels
     /// </summary>
     partial void OnSelectedSceneChanged(Scene? value)
     {
-      if (value != null && !_isUpdatingSelection)
+      if (value != null && !_isUpdatingSelection && MediaPlayer != null)
       {
         _isUpdatingSelection = true;
         PlaySelectedSceneCommand.NotifyCanExecuteChanged();
@@ -90,7 +90,6 @@ namespace A23_MVVM.ViewModels
         });
       }
     }
-
     private void LoadDummyData()
     {
       string dummyVideoPath = @"C:\Users\mikis\Videos\サンプル\sample-2.mp4";
@@ -153,7 +152,7 @@ namespace A23_MVVM.ViewModels
       MediaPlayer.SetRate((float)SelectedScene.PlaybackSpeed);
       MediaPlayer.TimeChanged -= OnMediaPlayerTimeChanged;
       MediaPlayer.Time = (long)SelectedScene.StartTime.TotalMilliseconds;
-      //MediaPlayer.Play();
+      MediaPlayer.Play();
       MediaPlayer.TimeChanged += OnMediaPlayerTimeChanged;
     }
 

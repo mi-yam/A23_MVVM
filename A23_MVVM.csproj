@@ -1,14 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- 1. 基本設定 (net8.0-windows) -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+
+    <PlatformTarget>x64</PlatformTarget>
+
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
-  <!-- 3. NuGetパッケージの参照 -->
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.9.2" />
