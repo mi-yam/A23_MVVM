@@ -1,21 +1,13 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Xml.Linq;
-using System.Windows.Controls.Ribbon; 
+﻿using System.Windows.Controls.Ribbon; // RibbonWindow のため
+using System.Windows;
 
 namespace A23_MVVM
 {
-  public partial class MainWindow : RibbonWindow 
+  public partial class MainWindow : RibbonWindow
   {
     public MainWindow()
     {
       InitializeComponent();
-    }
-
-    private void ListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-
     }
   }
 }

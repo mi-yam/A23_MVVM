@@ -1,25 +1,22 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.Collections.ObjectModel; // ObservableCollection
-using A23_MVVM.Models;               // Scene
-using LibVLCSharp.Shared;            // LibVLC
+using System.Collections.ObjectModel;
+using A23_MVVM.Models;
+using LibVLCSharp.Shared;
 using System;
-using System.Linq;                   // FirstOrDefault
-using System.IO;                     // File.Exists
-using System.Diagnostics;            // Debug.WriteLine (デバッグ用)
-using System.Threading.Tasks;        // Task.Delay (タイマー用)
-using System.Diagnostics; // ★ Debug.WriteLine のため追加
+using System.Linq;
+using System.IO;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
-// プロジェクト名.ViewModels (例: A23_MVVM.ViewModels)
 namespace A23_MVVM.ViewModels
 {
   public partial class MainViewModel : ObservableObject
   {
-    // --- Fields ---
-    private LibVLC _libVLC;
+    private LibVLC? _libVLC;
 
     [ObservableProperty]
-    private MediaPlayer _mediaPlayer;
+    private MediaPlayer? _mediaPlayer;
 
     [ObservableProperty]
     private ObservableCollection<Scene> _scenes;
@@ -27,34 +24,19 @@ namespace A23_MVVM.ViewModels
     [ObservableProperty]
     private Scene? _selectedScene;
 
-    /// <summary>
-    /// UIからの選択（クリック）と、再生位置の自動追従が
-    /// 競合するのを防ぐためのフラグ
-    /// </summary>
     private bool _isUpdatingSelection = false;
 
-    // --- Constructor ---
     public MainViewModel()
     {
       _libVLC = new LibVLC();
-      _mediaPlayer = new MediaPlayer(_libVLC);
 
-      // 2. ダミーデータの読み込み
+      Scenes = new ObservableCollection<Scene>();
       LoadDummyData();
 
-      // 3. MediaPlayer の TimeChanged イベントを購読（監視）
-      //    (ステップ4の追加機能)
-      _mediaPlayer.TimeChanged += OnMediaPlayerTimeChanged;
     }
 
-    // --- Event Handlers & Callbacks ---
-
-    /// <summary>
-    /// (ステップ4) MediaPlayerの再生時間が変わるたびに呼び出される
-    /// </summary>
     private void OnMediaPlayerTimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
     {
-      // UIスレッドで実行するおまじない
       App.Current.Dispatcher.Invoke(() =>
       {
         // UIクリック操作中は自動追従を停止
@@ -96,39 +78,22 @@ namespace A23_MVVM.ViewModels
     /// </summary>
     partial void OnSelectedSceneChanged(Scene? value)
     {
-      // 自動追従 (OnMediaPlayerTimeChanged) によって value が変更された場合、
-      // _isUpdatingSelection は false のため、この中には入らない。
-      // UIクリックによって value が変更された場合のみ、中に入る。
       if (value != null && !_isUpdatingSelection)
       {
-        // UIクリック操作中フラグを立てる
         _isUpdatingSelection = true;
-
-        // Play コマンドの実行可否を更新
         PlaySelectedSceneCommand.NotifyCanExecuteChanged();
-
-        // 選択シーンを再生
         PlaySelectedSceneCommand.Execute(null);
 
-        // 0.5秒後（再生が飛んだ後）にフラグを戻す
         _ = Task.Delay(500).ContinueWith(_ =>
         {
-          // UIスレッドでフラグを戻す
           App.Current.Dispatcher.Invoke(() => _isUpdatingSelection = false);
         });
       }
     }
 
-    // --- Methods ---
-
-    /// <summary>
-    /// (ステップ3) （ダミー）台本データをロードします
-    /// (これが不足していたメソッドです)
-    /// </summary>
     private void LoadDummyData()
     {
       string dummyVideoPath = @"C:\Users\mikis\Videos\サンプル\sample-2.mp4";
-
       Scenes = new ObservableCollection<Scene>
             {
                 new Scene
@@ -160,56 +125,49 @@ namespace A23_MVVM.ViewModels
                 }
             };
 
-      // 最初の行を選択状態にする
       SelectedScene = Scenes.FirstOrDefault(); // リストの最初の要素
     }
 
-    /// <summary>
-    /// (ステップ3) [RelayCommand]の CanExecute にバインドされます。
-    /// </summary>
     private bool CanPlaySelectedScene()
     {
-      // 選択シーンがあり、パスがNullでなく、ファイルが存在する場合のみTrue
       return SelectedScene != null &&
+             _libVLC != null &&
+             _mediaPlayer  != null &&
              !string.IsNullOrEmpty(SelectedScene.SourceVideoPath) &&
              File.Exists(SelectedScene.SourceVideoPath);
     }
 
-    // --- Commands ---
-
-    /// <summary>
-    /// 選択中のシーンをプレビューで再生するコマンド
-    /// </summary>
     [RelayCommand(CanExecute = nameof(CanPlaySelectedScene))]
     private void PlaySelectedScene()
     {
       if (SelectedScene == null || string.IsNullOrEmpty(SelectedScene.SourceVideoPath)) return;
 
       var newMediaUri = new Uri(SelectedScene.SourceVideoPath);
-
-      // メディアが設定されていないか、違う動画ファイルが設定されていたら、
-      // 新しいMediaオブジェクトを作成して設定し直す
       if (MediaPlayer.Media == null || MediaPlayer.Media.Mrl != newMediaUri.AbsoluteUri)
       {
-        var media = new Media(_libVLC, newMediaUri);
+        var media = new Media(_libVLC!, newMediaUri);
         MediaPlayer.Media = media;
       }
 
       // 再生速度を設定
       MediaPlayer.SetRate((float)SelectedScene.PlaybackSpeed);
-
-      // (ステップ4) 再生位置を飛ばす（TimeSet）直前に
-      // イベントハンドラを一時的に解除し、競合を防ぐ
       MediaPlayer.TimeChanged -= OnMediaPlayerTimeChanged;
-
-      // 再生開始位置を設定 (ミリ秒)
       MediaPlayer.Time = (long)SelectedScene.StartTime.TotalMilliseconds;
-
-      // 再生
-      MediaPlayer.Play();
-
-      // (ステップ4) 再生開始後に、再度イベントハンドラを登録
+      //MediaPlayer.Play();
       MediaPlayer.TimeChanged += OnMediaPlayerTimeChanged;
+    }
+
+    [RelayCommand]
+    private void ViewIsReady()
+    {
+      Debug.WriteLine("View is Loaded. Starting media plyaback(MVVM)");
+      _libVLC = new LibVLC();
+      MediaPlayer = new MediaPlayer(_libVLC);
+      MediaPlayer.TimeChanged += OnMediaPlayerTimeChanged;
+      if (PlaySelectedSceneCommand.CanExecute(null))
+      {
+        PlaySelectedSceneCommand.Execute(null);
+      }
     }
 
     [RelayCommand]
@@ -230,6 +188,5 @@ namespace A23_MVVM.ViewModels
     {
       Debug.WriteLine("リボン: [見出し1] スタイルが押されました");
     }
-
   }
 }
